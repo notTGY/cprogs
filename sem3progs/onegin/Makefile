@@ -1,2 +1,2 @@
 build:
-	gcc sorter.c && ./a.out ts_only_the_young.txt
+	gcc sorter.c && ./a.out ts_only_the_young.txt sorted.txt

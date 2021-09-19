@@ -6,6 +6,11 @@
 #include<sys/stat.h>
 #include<errno.h>
 
+struct str {
+  char *text;
+  int len;
+};
+
 // https://stackoverflow.com/questions/8236/how-do-you-determine-the-size-of-a-file-in-c
 off_t fsize(const char *filename) {
   struct stat st;
@@ -30,39 +35,73 @@ unsigned int get_line_number(const char* text, int filesize) {
 /**
  * split text between lines without modifying the text itself
  */
-int process_line_splitting(char* text, char** lines, int* line_lenghts, int filesize) {
+int process_line_splitting(char* text, struct str* lines, int filesize) {
   int i = 0, line = 0;
 
-  lines[0] = &text[0];
-  line_lenghts[0] = 0;
+  lines[0].text = &text[0];
+  lines[0].len = 0;
 
   while(i++ < filesize) {
     if (text[i] == '\n')
-      lines[++line] = &text[i];
-    line_lenghts[line]++;
+      lines[++line].text = &text[i];
+    lines[line].len++;
   }
 }
 
 /**
  * function to custom print our lines
  */
-int custom_print(int fd, char** lines, int* line_lenghts, int line_number) {
+int custom_print(int fd, struct str* lines, int line_number) {
   for (int i = 0; i < line_number; i++) {
-    write(fd, lines[i], line_lenghts[i]);
+    write(fd, lines[i].text, lines[i].len);
   }
   return 0;
 }
 
+/**
+ * comparator function that sorts lines alphabetically
+ */
+int strcmpup(const void *a1, const void *a2) {
+  const struct str *p1 = (const struct str*)a1;
+  const struct str *p2 = (const struct str*)a2;
+  int min_len = p1->len < p2->len ? p1->len : p2->len;
+  for (int i = 0; i < min_len; i++) {
+    if (p1->text[i] < p2->text[i]) return -1;
+    if (p1->text[i] > p2->text[i]) return 1;
+  }
+  if (p1->len < p2->len) return -1;
+  if (p1->len > p2->len) return 1;
+  return 0;
+}
+
+/**
+ * comparator function that sorts lines reversed alphabetically
+ */
+int strcmpdown(const void *a1, const void *a2) {
+  const struct str *p1 = (const struct str*)a1;
+  const struct str *p2 = (const struct str*)a2;
+  int min_len = p1->len < p2->len ? p1->len : p2->len;
+  for (int i = 0; i < min_len; i++) {
+    if (p1->text[p1->len - i] < p2->text[p2->len - i]) return -1;
+    if (p1->text[p1->len - i] > p2->text[p2->len - i]) return 1;
+  }
+  if (p1->len < p2->len) return -1;
+  if (p1->len > p2->len) return 1;
+  return 0;
+}
+
+
 int main(int argc, char** argv) {
-  char *filename, *buffer, **lines;
+  char *filename, *buffer, *output;
+  struct str *lines;
   off_t filesize;
-  int fd, line_number;
-  int *line_lenghts;
-  if (argc == 1) {
-    printf("usage: %s <filename>\n", argv[0]);
+  int fd, line_number, fd_output;
+  if (argc != 3) {
+    printf("usage: %s <input filename> <output filename>\n", argv[0]);
     return 0;
   }
   filename = argv[1];
+  output = argv[2];
   filesize = fsize(filename);
   buffer = malloc((filesize+1) * sizeof(char));
   if (buffer == NULL) {
@@ -74,6 +113,10 @@ int main(int argc, char** argv) {
     perror("failed to open file");
     exit(errno);
   }
+  if ((fd_output = open(output, O_WRONLY)) < 0) {
+    perror("failed to open file");
+    exit(errno);
+  }
   // O(n)
   if (read(fd, buffer, filesize) < 0) {
     perror("failed to read file");
@@ -82,18 +125,24 @@ int main(int argc, char** argv) {
 
   // O(n)
   line_number = get_line_number(buffer, filesize);
-  lines = malloc((line_number + 1) * sizeof(char*));
-  line_lenghts = malloc((line_number + 1) * sizeof(int));
+  lines = malloc((line_number + 1) * sizeof(struct str));
   for (int i = 0; i < line_number + 1; i++)
-    line_lenghts[i] = 0;
+    lines[i].len = 0;
 
   // O(n)
-  process_line_splitting(buffer, lines, line_lenghts, filesize);
+  process_line_splitting(buffer, lines, filesize);
 
-  custom_print(1, lines, line_lenghts, line_number);
+  qsort(lines, line_number + 1, sizeof(struct str), strcmpup);
+  custom_print(fd_output, lines, line_number);
+  write(fd_output, "\n\n\n", 3);
+
+  qsort(lines, line_number + 1, sizeof(struct str), strcmpdown);
+  custom_print(fd_output, lines, line_number);
+  write(fd_output, "\n\n\n", 3);
+
+  write(fd_output, buffer, filesize);
 
   free(lines);
-  free(line_lenghts);
   free(buffer);
   return 0;
 }
