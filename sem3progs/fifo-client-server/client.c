@@ -19,8 +19,8 @@ int processInput(char* fname, int write_d, int read_d, char* read_fifo) {
 }
 
 int main() {
-  int fd_write, fd_read;
-  char str[MAX_STR_LEN];
+  int fd_write, fd_read
+  char str[MAX_STR_LEN]
   char *fifo = "hi";
   printf("FIFO client v%d\nEnter your host:", VERSION);
   scanf("%s", str);
