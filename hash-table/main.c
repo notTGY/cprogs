@@ -3,4 +3,6 @@
 
 int main() {
   printf("hi\n");
+
+  ht* test = ht_create();
 }
