@@ -31,9 +31,40 @@ ht_destroy(my_hash_table);
 
 ### ht_create
 
+Creates hash table with length of 
+`MIN_HASH_TABLE_SIZE`, which can be overwritten in
+`hash-table.h`. Initializes all elements.
+
+If there are some errors (allocation),
+it will return `NULL`. Otherwise, new hash table.
+
+Usage: `ht* new_table = ht_create();`
+
 ### ht_destroy
+
+Destroys table and all associated data.
+
+Usage: `ht_destroy();`
 
 ### ht_set
 
+Sets value of the key in the table. Automatically
+resizes table. Resize size can be controlled with
+`HASH_TABLE_SIZE_INC` in `hash-table.h`
+
+Important! key passed shouldn't be `NULL`
+
+On error returns `NULL`
+If key-value was inserted successfully - returns key
+(duplicated string if there wasn't such key in the
+table)
+
+Usage: `ht_set(new_table, "Alice", (void*)&x);`
+
 ### ht_get
+
+Returns value of the element with a given key.
+If there is no such key, returns `NULL`.
+
+Usage: `int x = *(int*)ht_get(new_table, "Alice");`
 
