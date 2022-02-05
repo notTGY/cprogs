@@ -22,7 +22,7 @@ corresponding hash and store an element somewhere.
 ht* my_hash_table = ht_create();
 char* name = "Alice";
 ht_set(my_hash_table, "name", name);
-printf(ht_get(my_hash_table, "name");
+printf("%s", (char*)ht_get(my_hash_table, "name"));
 // Expected output: "Alice"
 ht_destroy(my_hash_table);
 ```
