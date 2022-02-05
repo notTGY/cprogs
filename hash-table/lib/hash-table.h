@@ -1,7 +1,7 @@
 #ifndef _HASH_TABLE_TGY
 #define _HASH_TABLE_TGY
 
-#define MIN_HASH_TABLE_SIZE 100
+#define MIN_HASH_TABLE_SIZE 10
 #define HASH_TABLE_SIZE_INC 1
 
 /**

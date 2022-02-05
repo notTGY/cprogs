@@ -28,6 +28,10 @@ ht* ht_create() {
     return NULL;
   }
 
+  for (size_t i = 0; i < table->len; i++) {
+    table->elems[i].key = NULL;
+  }
+
   return table;
 }
 
