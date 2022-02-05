@@ -133,6 +133,10 @@ int ht_resize(ht* table) {
   elem* new_elems = malloc(sizeof(elem) * new_len);
   if (!new_elems) return 1;
 
+  for (size_t i = 0; i < new_len; i++) {
+    new_elems[i].key = NULL;
+  }
+
   for (size_t i = 0; i < table->len; i++) {
     elem el = table->elems[i];
 
@@ -148,6 +152,7 @@ int ht_resize(ht* table) {
 
   free(table->elems);
   table->elems = new_elems;
+  table->len = new_len;
   return 0;
 }
 
@@ -158,13 +163,14 @@ int ht_resize(ht* table) {
 const char* ht_set(
   ht* table, const char* key, void* value
 ) {
+
   if (!key) return NULL;
 
   // check if we need resize
   if (
-    table->used > table->len - HASH_TABLE_SIZE_INC
+    table->used > table->len - HASH_TABLE_SIZE_INC - 1
   ) {
-    if (!ht_resize(table)) return NULL;
+    if (ht_resize(table)) return NULL;
   }
 
   return ht_set_elem(

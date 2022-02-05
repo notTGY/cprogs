@@ -3,7 +3,7 @@
 
 #include"lib/hash-table.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 int main() {
   ht* my_hash_table = ht_create();
@@ -18,35 +18,59 @@ int main() {
 
   ht_destroy(my_hash_table);
 
-
   ht* new_hash_table = ht_create();
 
   int* values = malloc(sizeof(int) * 100);
+  char** keys = malloc(sizeof(char*) * 100);
   for (size_t i = 1; i < 100; i++) {
-    char* key = "key_x";
-    key[4] = i;
+    char* key = malloc(sizeof(char) * 4);
+    sprintf(key, "%d", (int)i);
+
+    keys[i] = key;
     values[i] = i;
+
+    if (DEBUG) {
+      printf(
+        "setting %s to be %d\n",
+        keys[i],
+        values[i]
+      );
+    }
 
     ht_set(
       new_hash_table,
-      (const char*)key,
+      (const char*)keys[i],
       (void*)&values[i]
     );
+    if (DEBUG) printf("\n");
   }
 
   for (size_t i = 1; i < 100; i++) {
-    char* key = "key_x";
-    key[4] = i;
-
     int* v = (int*)ht_get(
       new_hash_table,
-      (const char*)key
+      (const char*)keys[i]
     );
+
+    if (DEBUG) {
+      printf(
+        "value at %s is %d\n",
+        keys[i],
+        *v
+      );
+    }
     
     if (v != &values[i]) {
       if (DEBUG) printf("error at %d", (int)i);
     }
   }
 
+  ht_destroy(new_hash_table);
+
+  free(values);
+  for (size_t i = 1; i < 100; i++) {
+    free((void*)keys[i]);
+  }
+  free(keys);
+  return 0;
 }
 
