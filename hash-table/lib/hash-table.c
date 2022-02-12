@@ -15,14 +15,16 @@ struct ht {
   size_t used;
 };
 
-ht* ht_create() {
+ht* ht_create(HTERR* err) {
   ht* table = malloc(sizeof(ht));
+  if (err) *err = EMALLOC;
   if (!table) return NULL;
 
   table->len = MIN_HASH_TABLE_SIZE;
   table->used = 0;
 
   table->elems = malloc(sizeof(elem) * table->len);
+  if (err) *err = EMALLOC;
   if (!table->elems) {
     free(table);
     return NULL;
@@ -32,6 +34,7 @@ ht* ht_create() {
     table->elems[i].key = NULL;
   }
 
+  if (err) *err = ESUCCESS;
   return table;
 }
 

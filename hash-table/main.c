@@ -6,7 +6,8 @@
 #define DEBUG 0
 
 int main() {
-  ht* my_hash_table = ht_create();
+  HTERR hterr;
+  ht* my_hash_table = ht_create(&hterr);
 
   char* name = "Alice";
 
@@ -18,7 +19,7 @@ int main() {
 
   ht_destroy(my_hash_table);
 
-  ht* new_hash_table = ht_create();
+  ht* new_hash_table = ht_create(NULL);
 
   int* values = malloc(sizeof(int) * 100);
   char** keys = malloc(sizeof(char*) * 100);
@@ -71,6 +72,23 @@ int main() {
     free((void*)keys[i]);
   }
   free(keys);
+
+  ht* ht_test = ht_create(NULL);
+  if (ht_get(ht_test, "something") != NULL && DEBUG)
+      printf(
+        "expected to receive no value at empty ht\n"
+      );
+
+  int something = 3;
+  ht_set(ht_test, "something", &something);
+  int something2 = 2;
+  ht_set(ht_test, "something", &something2);
+
+  ht_set(ht_test, NULL, &something2);
+
+  ht_destroy(ht_test);
+
+  printf("Success!!!\n");
   return 0;
 }
 

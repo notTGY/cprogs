@@ -12,10 +12,20 @@
 typedef struct ht ht;
 
 /**
+ * Enum for errors
+ */
+typedef enum {
+  ESUCCESS = 0,
+  EINVARG,
+  EMALLOC,
+} HTERR;
+
+/**
  * Create hash table and return pointer to it;
  * in case something goes wrong -> NULL
+ * for error details pass HTERR*
  */
-ht* ht_create();
+ht* ht_create(HTERR* err);
 
 /**
  * Destroy hash table and all associated data

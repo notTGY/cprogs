@@ -19,7 +19,7 @@ corresponding hash and store an element somewhere.
 ...
 
 
-ht* my_hash_table = ht_create();
+ht* my_hash_table = ht_create(NULL);
 char* name = "Alice";
 ht_set(my_hash_table, "name", name);
 printf("%s", (char*)ht_get(my_hash_table, "name"));
@@ -35,10 +35,13 @@ Creates hash table with length of
 `MIN_HASH_TABLE_SIZE`, which can be overwritten in
 `hash-table.h`. Initializes all elements.
 
+Pass in `HTERR* err` to get more info about error.
+(see `HTERR`)
+
 If there are some errors (allocation),
 it will return `NULL`. Otherwise, new hash table.
 
-Usage: `ht* new_table = ht_create();`
+Usage: `ht* new_table = ht_create(NULL);`
 
 ### ht_destroy
 
@@ -67,4 +70,16 @@ Returns value of the element with a given key.
 If there is no such key, returns `NULL`.
 
 Usage: `int x = *(int*)ht_get(new_table, "Alice");`
+
+## Enums
+
+### HTERR
+
+Enum has following values:
+
+```
+ESUCCESS
+EINVARG
+EMALLOC
+```
 
