@@ -11,7 +11,7 @@ int main() {
 
   char* name = "Alice";
 
-  ht_set(my_hash_table, "name", name);
+  ht_set(my_hash_table, "name", name, &hterr);
 
   if (DEBUG) {
     printf("1. expected \"Alice\", got: \"%s\"\n", (char*)ht_get(my_hash_table, "name"));
@@ -41,7 +41,8 @@ int main() {
     ht_set(
       new_hash_table,
       (const char*)keys[i],
-      (void*)&values[i]
+      (void*)&values[i],
+      &hterr
     );
     if (DEBUG) printf("\n");
   }
@@ -80,11 +81,11 @@ int main() {
       );
 
   int something = 3;
-  ht_set(ht_test, "something", &something);
+  ht_set(ht_test, "something", &something, NULL);
   int something2 = 2;
-  ht_set(ht_test, "something", &something2);
+  ht_set(ht_test, "something", &something2, NULL);
 
-  ht_set(ht_test, NULL, &something2);
+  ht_set(ht_test, NULL, &something2, NULL);
 
   ht_destroy(ht_test);
 

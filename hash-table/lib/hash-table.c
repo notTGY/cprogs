@@ -13,6 +13,7 @@ struct ht {
 
   size_t len;
   size_t used;
+  size_t size_inc;
 };
 
 ht* ht_create(HTERR* err) {
@@ -22,6 +23,7 @@ ht* ht_create(HTERR* err) {
 
   table->len = MIN_HASH_TABLE_SIZE;
   table->used = 0;
+  table->size_inc = HASH_TABLE_SIZE_INC;
 
   table->elems = malloc(sizeof(elem) * table->len);
   if (err) *err = EMALLOC;
@@ -129,7 +131,7 @@ const char* ht_set_elem(
  * on success return 0, on error 1
  */
 int ht_resize(ht* table) {
-  size_t new_len = table->len + HASH_TABLE_SIZE_INC;
+  size_t new_len = table->len + table->size_inc;
   // type overflow
   if (new_len < table->len) return 1;
   
@@ -164,18 +166,24 @@ int ht_resize(ht* table) {
  * on success return key, on error return NULL
  */
 const char* ht_set(
-  ht* table, const char* key, void* value
+  ht* table,
+  const char* key,
+  void* value,
+  HTERR* err
 ) {
 
+  if (err) *err = EINVARG;
   if (!key) return NULL;
 
   // check if we need resize
   if (
-    table->used > table->len - HASH_TABLE_SIZE_INC - 1
+    table->used > table->len - table->size_inc - 1
   ) {
+    if (err) *err = EMALLOC;
     if (ht_resize(table)) return NULL;
   }
 
+  if (err) *err = ESUCCESS;
   return ht_set_elem(
     table->elems,
     table->len,

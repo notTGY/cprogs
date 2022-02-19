@@ -1,5 +1,7 @@
 # hash table
 
+**Coverage: 97.44%**
+
 ## Introduction
 
 This is a hash table lib done as a school project
@@ -21,7 +23,7 @@ corresponding hash and store an element somewhere.
 
 ht* my_hash_table = ht_create(NULL);
 char* name = "Alice";
-ht_set(my_hash_table, "name", name);
+ht_set(my_hash_table, "name", name, NULL);
 printf("%s", (char*)ht_get(my_hash_table, "name"));
 // Expected output: "Alice"
 ht_destroy(my_hash_table);
@@ -41,7 +43,7 @@ Pass in `HTERR* err` to get more info about error.
 If there are some errors (allocation),
 it will return `NULL`. Otherwise, new hash table.
 
-Usage: `ht* new_table = ht_create(NULL);`
+Usage: `ht* new_table = ht_create(HTERR* err);`
 
 ### ht_destroy
 
@@ -62,7 +64,10 @@ If key-value was inserted successfully - returns key
 (duplicated string if there wasn't such key in the
 table)
 
-Usage: `ht_set(new_table, "Alice", (void*)&x);`
+Pass in `HTERR* err` to get more info about error.
+(see `HTERR`)
+
+Usage: `ht_set(new_table, "Alice", (void*)&x, HTERR* err);`
 
 ### ht_get
 

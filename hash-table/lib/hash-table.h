@@ -43,7 +43,7 @@ void* ht_get(ht* table, const char* key);
  * it is copied to newly allocated memory
  */
 const char* ht_set(
-  ht* table, const char* key, void* value
+  ht* table, const char* key, void* value, HTERR* err
 );
 
 #endif
