@@ -35,24 +35,6 @@ AST* createHash() {
   return hash;
 }
 
-AST* fromString(const char* str) {
-  int len = strlen(str);
-  if (len < 1) {
-    cerr << "AST children can't have <1 lenght\n";
-    return nullptr;
-  } else if (len == 1) {
-    return createLeaf(str[0]);
-  } else if (str[len - 1] == '*') {
-    if (len == 2) {
-      char content[2] = { str[0], '\0' };
-      return createStar(content);
-    }
-  }
-
-  cerr << "AST unsupported format\n";
-  return nullptr;
-}
-
 AST* createCat(
   const char* left,
   const char* right,
@@ -123,6 +105,53 @@ AST* createStar(const char* content) {
   node->nullable = true;
 
   return node;
+}
+
+AST* fromString(const char* str) {
+  int len = strlen(str);
+
+  if (len < 1) {
+    cerr << "AST children can't have <1 length\n";
+    return nullptr;
+  }
+
+  if (len == 1) { return createLeaf(str[0]); }
+
+  if (str[len - 1] == '*') {
+    if (len == 2) {
+      char content[2] = { str[0], '\0' };
+      return createStar(content);
+    }
+
+    if (str[len - 2] == ')' && str[0] == '(') {
+      int idx = 1, count = 1;
+      bool isStart = true;
+
+      for (int i = idx; i < len; i++) {
+        if (str[i] == '(') { count++; continue; }
+        if (isStart) { idx = i + 1; isStart = false; }
+        if (str[i] == ')') {
+          if (--count < 0) {
+            cerr << "AST parentheses El Problema\n";
+            return nullptr;
+          }
+        }
+      }
+
+      isStart = true;
+      for (int i = 0; i < idx && isStart; i++) {
+        if (str[len - 2 - i] != ')') {
+          count = i;
+          isStart = false;
+        }
+      }
+
+
+    }
+  }
+
+  cerr << "AST unsupported format\n";
+  return nullptr;
 }
 
 AST* fromREGEX(const char* regex) {
