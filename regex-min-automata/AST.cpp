@@ -1,3 +1,6 @@
+#include<algorithm>
+#include<iostream>
+#include<cstring>
 #include"AST.hpp"
 
 /**
@@ -5,32 +8,42 @@
  */
 int pos;
 
-vector<int> concat(vector<int> a, vector<int> b) {
+std::vector<int> concat(
+  std::vector<int> a, std::vector<int> b
+) {
   a.insert(a.end(), b.begin(), b.end());
   // required for making unique element
-  sort(a.begin(), a.end());
+  std::sort(a.begin(), a.end());
   //for finding unique element within vector
-  a.erase(unique(a.begin(), a.end()), a.end());
+  a.erase(std::unique(a.begin(), a.end()), a.end());
   return a;
 }
 
 AST* createLeaf(int val) {
   AST* leaf = new AST;
+  std::vector<int>fpos { pos };
+  std::vector<int>lpos { pos };
+
   leaf->type = leaf_node;
   leaf->value = val;
-  leaf->fpos = { pos };
-  leaf->lpos = { pos };
+  leaf->fpos = fpos;
+  leaf->lpos = lpos;
   leaf->nullable = false;
+
   pos++;
   return leaf;
 }
 
 AST* createHash() {
   AST* hash = new AST;
+  std::vector<int>fpos { pos };
+  std::vector<int>lpos { pos };
+
   hash->type = hash_node;
-  hash->fpos = { pos };
-  hash->lpos = { pos };
+  hash->fpos = fpos;
+  hash->lpos = lpos;
   hash->nullable = false;
+
   pos++;
   return hash;
 }
@@ -111,51 +124,53 @@ AST* fromString(const char* str) {
   int len = strlen(str);
 
   if (len < 1) {
-    cerr << "AST children can't have <1 length\n";
+    std::cerr << "AST children can't have <1 length\n";
     return nullptr;
   }
 
   if (len == 1) { return createLeaf(str[0]); }
 
-  if (str[len - 1] == '*') {
-    if (len == 2) {
-      char content[2] = { str[0], '\0' };
-      return createStar(content);
-    }
-
-    if (str[len - 2] == ')' && str[0] == '(') {
-      int idx = 1, count = 1;
-      bool isStart = true;
-
-      for (int i = idx; i < len; i++) {
-        if (str[i] == '(') { count++; continue; }
-        if (isStart) { idx = i + 1; isStart = false; }
-        if (str[i] == ')') {
-          if (--count < 0) {
-            cerr << "AST parentheses El Problema\n";
-            return nullptr;
-          }
-        }
-      }
-
-      isStart = true;
-      for (int i = 0; i < idx && isStart; i++) {
-        if (str[len - 2 - i] != ')') {
-          count = i;
-          isStart = false;
-        }
-      }
-
-
-    }
-  }
-
-  cerr << "AST unsupported format\n";
-  return nullptr;
+  char* left = new char[len];
+  char right[2] = { str[len - 1], '\0' };
+  memcpy((void *)left, (const void *)str, len - 1);
+  left[len - 1] = '\0';
+  return createCat(left, right, false);
 }
 
 AST* fromREGEX(const char* regex) {
   pos = 0;
   return createCat(regex, "#", true);
+}
+
+void printAST(AST* ast) {
+  std::cout << "type: " << ast->type;
+  if (ast->type == leaf_node) std::cout << " value: " << ast->value;
+  std::cout << " fpos: ";
+  for (int i = 0; i < ast->fpos.size(); i++) std::cout << ast->fpos[i] << " ";
+  std::cout << " lpos: ";
+  for (int i = 0; i < ast->lpos.size(); i++) std::cout << ast->lpos[i] << " ";
+  std::cout << std::endl;
+  if (ast->type == cat_node) {
+    printAST(ast->left);
+    printAST(ast->right);
+  }
+}
+
+std::vector<int> alphabet(AST* ast) {
+  std::cout << ast->type << " ";
+  if (ast->type == leaf_node) {
+    std::vector<int> ret { ast->value };
+    return ret;
+  }
+
+  if (ast->left && ast->right)
+    return concat(
+      alphabet(ast->left),
+      alphabet(ast->right)
+    );
+  if (ast->left) return alphabet(ast->left);
+
+  std::vector<int> empty;
+  return empty;
 }
 

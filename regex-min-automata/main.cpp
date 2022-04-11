@@ -1,8 +1,9 @@
 #include<iostream>
 #include<vector>
+#include"types.hpp"
+#include"common.hpp"
 #include"Automata.cpp"
 #include"AST.cpp"
-using namespace std;
 
 main(int argc, char** argv) {
   Automata A(
@@ -14,10 +15,17 @@ main(int argc, char** argv) {
   );
 
   char* str = (char*)malloc(1024 * sizeof(char));
-  cin >> str;
-  cout << (A.test((const char*)str) ? "1\n" : "0\n");
+  // std::cin >> str;
+  // std::cout << (A.test((const char*)str) ? "1\n" : "0\n");
+  // std::cout << A << std::endl;
 
-  cout << A;
+  std::cin >> str;
+
+  AST* ast = fromREGEX(str);
+
+  printAST(ast);
+
+  Automata* B = fromAST(ast);
 
   return 0;
 }

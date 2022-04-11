@@ -1,17 +1,14 @@
 #include<algorithm>
 #include<iostream>
 #include<vector>
-
-using namespace std;
-
 #include"Automata.hpp"
 
 Automata::Automata(
-  vector<int> __T,
-  vector<int> __Q,
+  std::vector<int> __T,
+  std::vector<int> __Q,
   int __q0,
-  vector<int> __Q_f,
-  vector<vector<int>> __f
+  std::vector<int> __Q_f,
+  std::vector<std::vector<int>> __f
 ) {
   T = __T;
   Q = __Q;
@@ -26,9 +23,9 @@ bool Automata::test(const char* word) {
   char c;
   while (c = word[i++]) {
     // 1. find corresponding charcode in alphabet
-    auto search = find(T.begin(), T.end(), c);
+    auto search = std::find(T.begin(), T.end(), c);
     if (search == T.end()) return false;
-    int charcode = distance(T.begin(), search);
+    int charcode = std::distance(T.begin(), search);
 
     // 2. check if curstate has edge with that char
     if (f.size() < q_cur) return false;
@@ -38,9 +35,26 @@ bool Automata::test(const char* word) {
   }
 
   // 3. check if we are in final state
-  auto search = find(
+  auto search = std::find(
     Q_f.begin(), Q_f.end(), q_cur
   );
   return search != Q_f.end();
+}
+
+Automata* fromAST(AST* ast) {
+  std::vector<int> T, Q, Q_f;
+  int q0;
+  std::vector<std::vector<int>> f;
+
+  std::vector<std::vector<int>> startPosForState;
+
+  T = alphabet(ast);
+  int endPos = T.size();
+
+  Automata::printVec(std::cout, ast->fpos);
+  // startPosForState[0] = start;
+
+
+  return new Automata(T, Q, q0, Q_f, f);
 }
 
