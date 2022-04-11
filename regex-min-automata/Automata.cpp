@@ -41,6 +41,32 @@ bool Automata::test(const char* word) {
   return search != Q_f.end();
 }
 
+const char* Automata::match(const char* word) {
+  int q_cur = q0;
+  int i = 0;
+  char c;
+  while (c = word[i++]) {
+    // 1. find corresponding charcode in alphabet
+    auto search = std::find(T.begin(), T.end(), c);
+    if (search == T.end()) return nullptr;
+    int charcode = std::distance(T.begin(), search);
+
+    // 2. check if curstate has edge with that char
+    if (f.size() < q_cur) return nullptr;
+    if (f[q_cur].size() < charcode) return nullptr;
+    q_cur = f[q_cur][charcode];
+    if (q_cur < 0) return nullptr;
+
+    // 3. check if we are in final state
+    auto search2 = std::find(
+      Q_f.begin(), Q_f.end(), q_cur
+    );
+    if (search2 != Q_f.end()) return &word[i - 1];
+  }
+
+  return nullptr;
+}
+
 Automata* fromAST(AST* ast) {
   std::vector<int> T, Q, Q_f;
   int q0;

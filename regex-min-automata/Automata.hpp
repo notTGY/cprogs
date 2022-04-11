@@ -21,6 +21,7 @@ class Automata {
     );
 
     bool test(const char* word);
+    const char* match(const char* word);
 
     static void printVec(
       std::ostream& stream, std::vector<int> v
