@@ -11,6 +11,8 @@ int pos;
 std::vector<int> concat(
   std::vector<int> a, std::vector<int> b
 ) {
+  if (a.empty()) return b; 
+  if (b.empty()) return a; 
   a.insert(a.end(), b.begin(), b.end());
   // required for making unique element
   std::sort(a.begin(), a.end());
@@ -157,7 +159,6 @@ void printAST(AST* ast) {
 }
 
 std::vector<int> alphabet(AST* ast) {
-  std::cout << ast->type << " ";
   if (ast->type == leaf_node) {
     std::vector<int> ret { ast->value };
     return ret;
@@ -172,5 +173,47 @@ std::vector<int> alphabet(AST* ast) {
 
   std::vector<int> empty;
   return empty;
+}
+
+void putinmap(std::vector<int> *map, AST* ast) {
+  if (ast->type == leaf_node) {
+    (*map)[ast->fpos[0]] = ast->value;
+  }
+  if (ast->left) putinmap(map, ast->left);
+  if (ast->right) putinmap(map, ast->right);
+  return;
+}
+
+std::vector<int> CharValueMap(AST* ast) {
+  std::vector<int> map;
+  map.resize(ast->lpos[0]);
+  putinmap(&map, ast);
+  return map;
+}
+
+void computeFpos(
+  std::vector<std::vector<int>> *followpos, AST* ast
+) {
+  auto left = ast->left;
+  auto right = ast->right;
+  if (ast->type == cat_node) {
+    for (int i = 0; i < left->lpos.size(); i++) {
+      int j = left->lpos[i];
+      (*followpos)[j] = concat(
+        (*followpos)[j], right->fpos
+      );
+    }
+    if (left) computeFpos(followpos, left);
+    if (right) computeFpos(followpos, right);
+  }
+  return;
+}
+
+std::vector<std::vector<int>> FollowPos(AST* ast) {
+  std::vector<std::vector<int>> fpos;
+  fpos.resize(ast->lpos[0]);
+  for (int i = 0; i < fpos.size(); i++) fpos[i] = {};
+  computeFpos(&fpos, ast);
+  return fpos;
 }
 

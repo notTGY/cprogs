@@ -67,19 +67,94 @@ const char* Automata::match(const char* word) {
   return nullptr;
 }
 
+int vecInVecSet(
+  std::vector<int> search,
+  std::vector<std::vector<int>> set
+) {
+  for (int i = 0; i < set.size(); i++) {
+    bool match = true;
+    if (search.size() != set[i].size()) match = false;
+    for (int j = 0; (j < search.size()) && match; j++) {
+      if (search[j] != set[i][j]) match = false;
+    }
+    if (match) return i;
+  }
+  return -1;
+}
+
 Automata* fromAST(AST* ast) {
-  std::vector<int> T, Q, Q_f;
-  int q0;
+  std::vector<int> T = alphabet(ast);
+  std::vector<int> Q, Q_f;
+  int q0 = 0;
   std::vector<std::vector<int>> f;
 
-  std::vector<std::vector<int>> startPosForState;
+  int endPos = ast->lpos[0];
 
-  T = alphabet(ast);
-  int endPos = T.size();
+  std::vector<std::vector<int>> firstPosForState = {
+    ast->fpos
+  };
+  f.push_back({});
+  Q.push_back(Q.size());
 
-  Automata::printVec(std::cout, ast->fpos);
-  // startPosForState[0] = start;
+  std::vector<int> charvaluemap = CharValueMap(ast);
+  std::vector<std::vector<int>> followpos = FollowPos(ast);
 
+  // logging
+  /*
+    std::cout << "followpos:\n";
+    for (int i = 0; i < followpos.size(); i++) {
+      Automata::printVec(std::cout, followpos[i]);
+      std::cout << std::endl;
+    }
+  */
+
+  int i = 0;
+  while (i < firstPosForState.size()) {
+    std::vector<int> curin = firstPosForState[i];
+    f[i].resize(T.size());
+
+    // logging
+    /*
+      std::cout << "for state ";
+      for (int t = 0; t < curin.size(); t++) std::cout << curin[t];
+      std::cout << std::endl;
+    */
+
+    for (int j = 0; j < T.size(); j++) {
+      int charvalue = T[j];
+      std::vector<int> curout = {};
+
+      // Trash state
+      if (curin.empty()) f[i][j] = i;
+
+      for (int k = 0; k < curin.size(); k++) {
+        int fpos = curin[k];
+        if (charvalue == charvaluemap[fpos])
+          curout = concat(curout, followpos[fpos]);
+      }
+      std::sort(curout.begin(), curout.end());
+
+      auto idx = vecInVecSet(curout, firstPosForState);
+      if (idx == -1) {
+        firstPosForState.push_back(curout);
+        idx = vecInVecSet(curout, firstPosForState);
+
+        Q.push_back(Q.size());
+        f.push_back({});
+
+        f[i][j] = idx;
+      }
+      else { f[i][j] = idx; }
+
+      // final states
+      if (
+        std::find(
+          curout.begin(), curout.end(), endPos
+        ) != curout.end()
+      ) Q_f.push_back(idx);
+    }
+    i++;
+  }
 
   return new Automata(T, Q, q0, Q_f, f);
 }

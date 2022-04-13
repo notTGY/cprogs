@@ -23,9 +23,13 @@ main(int argc, char** argv) {
 
   AST* ast = fromREGEX(str);
 
-  printAST(ast);
-
   Automata* B = fromAST(ast);
+
+  std::cout << *B << std::endl;
+  std::cout << "Want to test your automata?" << std::endl;
+
+  std::cin >> str;
+  std::cout << (B->test((const char*)str) ? "1\n" : "0\n");
 
   return 0;
 }
