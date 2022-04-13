@@ -46,21 +46,21 @@ class Automata {
 
       stream << "{" << std::endl;
 
-      stream << "\tT: ";
+      stream << "\t\"T\": ";
       printVec(stream, T);
       stream << "," << std::endl;
 
-      stream << "\tQ: ";
+      stream << "\t\"Q\": ";
       printVec(stream, Q);
       stream << "," << std::endl;
 
-      stream << "\tq0: " << q0 << "," << std::endl;
+      stream << "\t\"q0\": " << q0 << "," << std::endl;
 
-      stream << "\tQ_f: ";
+      stream << "\t\"Q_f\": ";
       printVec(stream, Q_f);
       stream << "," << std::endl;
 
-      stream << "\tf: {" << std::endl;
+      stream << "\t\"f\": {" << std::endl;
       for (int i = 0; i < f.size(); i++) {
         stream << "\t\t";
         printVec(stream, f[i]);

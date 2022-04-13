@@ -130,13 +130,78 @@ AST* fromString(const char* str) {
     return nullptr;
   }
 
-  if (len == 1) { return createLeaf(str[0]); }
+  if (len == 1) return createLeaf(str[0]);
 
-  char* left = new char[len];
-  char right[2] = { str[len - 1], '\0' };
-  memcpy((void *)left, (const void *)str, len - 1);
-  left[len - 1] = '\0';
-  return createCat(left, right, false);
+  char* closing = strrchr(str, ')');
+  if (closing) {
+    char* openFirst = strchr(str, '(');
+    const char* openLast;
+
+    int partitionNumber = 0;
+    for (int i = len - 1, deepness = 0; i >= 0; i--) {
+      switch (str[i]) {
+        case ')':
+          if (deepness == 0) partitionNumber++;
+          deepness++;
+          break;
+        case '(':
+          if (deepness == 0) {
+            std::cerr << "Bad parentheses\n";
+            return nullptr;
+          }
+          deepness--;
+          if (deepness == 0) openLast = &str[i];
+      }
+    }
+
+    if (
+      openFirst == &str[0]
+      && closing == &str[len - 1]
+      && partitionNumber == 1
+    ) {
+      // if we have situation like this (...)
+      char* content = new char[len - 1];
+      memcpy((void *)content, (const void *)(str + 1), len - 2);
+      content[len - 2] = '\0';
+
+      return fromString(content);
+    } else if (closing == &str[len - 1]) {
+      // if we have situation like this ...(...)
+      int lenLeft = closing - openLast + 1;
+      char* left = new char[lenLeft + 1];
+      memcpy((void *)left, (const void *)openLast, lenLeft);
+      left[lenLeft] = '\0';
+
+      int lenRight = openLast - str;
+      char* right = new char[lenRight + 1];
+      memcpy((void *)right, (const void *)str, lenRight);
+      right[lenRight] = '\0';
+      
+      return createCat(left, right, false);
+    } else if (
+      openFirst == &str[0]
+      && closing == &str[len - 2]
+      && str[len - 1] == '*'
+      && partitionNumber == 1
+    ) {
+      // if we have situation like this (...)*
+      char* content = new char[len];
+      memcpy((void *)content, (const void *)str, len - 1);
+      content[len - 1] = '\0';
+
+      return createStar(content);
+    }
+    
+  } else {
+    char* left = new char[len];
+    memcpy((void *)left, (const void *)str, len - 1);
+    left[len - 1] = '\0';
+    char right[2] = { str[len - 1], '\0' };
+    if (right[0] == '*') return createStar(left);
+    else return createCat(left, right, false);
+  }
+  std::cerr << "Failed to parse AST\n";
+  return nullptr;
 }
 
 AST* fromREGEX(const char* regex) {
@@ -164,24 +229,27 @@ std::vector<int> alphabet(AST* ast) {
     return ret;
   }
 
-  if (ast->left && ast->right)
+  if (ast->type == cat_node || ast->type == or_node)
     return concat(
       alphabet(ast->left),
       alphabet(ast->right)
     );
-  if (ast->left) return alphabet(ast->left);
+  if (ast->type == star_node) return alphabet(ast->left);
 
-  std::vector<int> empty;
-  return empty;
+  return {};
 }
 
 void putinmap(std::vector<int> *map, AST* ast) {
-  if (ast->type == leaf_node) {
-    (*map)[ast->fpos[0]] = ast->value;
+  switch(ast->type) {
+    case leaf_node:
+      (*map)[ast->fpos[0]] = ast->value;
+      break;
+    case cat_node:
+    case or_node:
+      putinmap(map, ast->right);
+    case star_node:
+      putinmap(map, ast->left);
   }
-  if (ast->left) putinmap(map, ast->left);
-  if (ast->right) putinmap(map, ast->right);
-  return;
 }
 
 std::vector<int> CharValueMap(AST* ast) {
@@ -203,8 +271,17 @@ void computeFpos(
         (*followpos)[j], right->fpos
       );
     }
-    if (left) computeFpos(followpos, left);
-    if (right) computeFpos(followpos, right);
+    computeFpos(followpos, left);
+    computeFpos(followpos, right);
+  }
+  if (ast->type == star_node) {
+    for (int i = 0; i < left->lpos.size(); i++) {
+      int j = left->lpos[i];
+      (*followpos)[j] = concat(
+        (*followpos)[j], left->fpos
+      );
+    }
+    computeFpos(followpos, left);
   }
   return;
 }

@@ -96,6 +96,7 @@ Automata* fromAST(AST* ast) {
   f.push_back({});
   Q.push_back(Q.size());
 
+
   std::vector<int> charvaluemap = CharValueMap(ast);
   std::vector<std::vector<int>> followpos = FollowPos(ast);
 
