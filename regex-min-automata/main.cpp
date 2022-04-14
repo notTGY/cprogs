@@ -4,6 +4,7 @@
 #include"common.hpp"
 #include"Automata.cpp"
 #include"AST.cpp"
+#include"minimize.cpp"
 
 testFromAutomata() {
   Automata A(

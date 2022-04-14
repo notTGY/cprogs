@@ -1,17 +1,18 @@
 class Automata {
-  // here *int* means char (hack for less fns)
-  std::vector<int> T;
-  std::vector<int> Q;
-  int q0;
-  std::vector<int> Q_f;
-  /**
-   * f[current_state][letter_idx] == new_state
-   *
-   * all missing edges point towards -1
-   */
-  std::vector<std::vector<int>> f;
-
   public:
+
+    // here *int* means char (hack for less fns)
+    std::vector<int> T;
+    std::vector<int> Q;
+    int q0;
+    std::vector<int> Q_f;
+    /**
+     * f[current_state][letter_idx] == new_state
+     *
+     * all missing edges point towards -1
+     */
+    std::vector<std::vector<int>> f;
+
     Automata(
       std::vector<int> __T,
       std::vector<int> __Q,
