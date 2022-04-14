@@ -76,6 +76,13 @@ interactive() {
     std::cout << "ast: " << std::endl;
     printAST(ast);
     std::cout << std::endl;
+
+    std::vector<std::vector<int>> followpos = FollowPos(ast);
+    std::cout << "followpos:\n";
+    for (int i = 0; i < followpos.size(); i++) {
+      Automata::printVec(std::cout, followpos[i]);
+      std::cout << std::endl;
+    }
   */
 
   Automata* B = fromAST(ast);

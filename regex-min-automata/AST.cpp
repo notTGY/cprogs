@@ -133,6 +133,8 @@ AST* fromString(const char* str) {
   if (len == 1) return createLeaf(str[0]);
 
   char* closing = strrchr(str, ')');
+  char* pipe = strrchr(str, '|');
+
   if (closing) {
     char* openFirst = strchr(str, '(');
     const char* openLast;
@@ -151,6 +153,20 @@ AST* fromString(const char* str) {
           }
           deepness--;
           if (deepness == 0) openLast = &str[i];
+          break;
+        case '|':
+          if (deepness != 0) break;
+          int lenLeft = pipe - str;
+          char* left = new char[lenLeft + 1];
+          memcpy((void *)left, (const void *)str, lenLeft);
+          left[lenLeft] = '\0';
+
+          int lenRight = len - (pipe - str) - 1;
+          char* right = new char[lenRight + 1];
+          memcpy((void *)right, (const void *)(pipe + 1), lenRight);
+          right[lenRight] = '\0';
+
+          return createOr(left, right);
       }
     }
 
@@ -165,19 +181,6 @@ AST* fromString(const char* str) {
       content[len - 2] = '\0';
 
       return fromString(content);
-    } else if (closing == &str[len - 1]) {
-      // if we have situation like this ...(...)
-      int lenLeft = closing - openLast + 1;
-      char* left = new char[lenLeft + 1];
-      memcpy((void *)left, (const void *)openLast, lenLeft);
-      left[lenLeft] = '\0';
-
-      int lenRight = openLast - str;
-      char* right = new char[lenRight + 1];
-      memcpy((void *)right, (const void *)str, lenRight);
-      right[lenRight] = '\0';
-      
-      return createCat(left, right, false);
     } else if (
       openFirst == &str[0]
       && closing == &str[len - 2]
@@ -190,15 +193,75 @@ AST* fromString(const char* str) {
       content[len - 1] = '\0';
 
       return createStar(content);
+    } else if (
+      (closing == &str[len - 1])
+      || (
+        closing == &str[len - 2]
+        && str[len - 1] == '*'
+      )
+    ) {
+      // if we have situation like this ...(...) or ...(...)*
+      int lenRight = len - (openLast - str) + 1;
+      char* right = new char[lenRight + 1];
+      memcpy((void *)right, (const void *)openLast, lenRight);
+      right[lenRight] = '\0';
+
+      int lenLeft = openLast - str;
+      char* left = new char[lenLeft + 1];
+      memcpy((void *)left, (const void *)str, lenLeft);
+      left[lenLeft] = '\0';
+      
+      return createCat(left, right, false);
+    } else if (str[len - 1] == '*') {
+      // ...(...)...*
+      char* left = new char[len - 1];
+      memcpy((void *)left, (const void *)str, len - 2);
+      left[len - 2] = '\0';
+      char right[3] = { str[len - 2], str[len - 1], '\0' };
+      return createCat(left, right, false);
+    } else {
+      // ...(...)...
+      char* left = new char[len];
+      memcpy((void *)left, (const void *)str, len - 1);
+      left[len - 1] = '\0';
+      char right[2] = { str[len - 1], '\0' };
+      return createCat(left, right, false);
     }
     
+  } else if (pipe) {
+    int lenLeft = pipe - str;
+    char* left = new char[lenLeft + 1];
+    memcpy((void *)left, (const void *)str, lenLeft);
+    left[lenLeft] = '\0';
+
+    int lenRight = len - (pipe - str) - 1;
+    char* right = new char[lenRight + 1];
+    memcpy((void *)right, (const void *)(pipe + 1), lenRight);
+    right[lenRight] = '\0';
+    
+    return createOr(left, right);
+  } else if (str[len - 1] == '*') {
+    // ...*
+    if (len < 2) {
+      std::cerr << "Can't take iteration of nothing\n";
+      return nullptr;
+    } else if (len > 2) {
+      char* left = new char[len - 1];
+      memcpy((void *)left, (const void *)str, len - 2);
+      left[len - 2] = '\0';
+      char right[3] = { str[len - 2], str[len - 1], '\0' };
+      return createCat(left, right, false);
+    } else if (len == 2) {
+      char content[2] = { str[0], '\0' };
+      return createStar(content);
+    }
   } else {
+    // ...
     char* left = new char[len];
     memcpy((void *)left, (const void *)str, len - 1);
     left[len - 1] = '\0';
     char right[2] = { str[len - 1], '\0' };
-    if (right[0] == '*') return createStar(left);
-    else return createCat(left, right, false);
+    return createCat(left, right, false);
   }
   std::cerr << "Failed to parse AST\n";
   return nullptr;
@@ -217,7 +280,7 @@ void printAST(AST* ast) {
   std::cout << " lpos: ";
   for (int i = 0; i < ast->lpos.size(); i++) std::cout << ast->lpos[i] << " ";
   std::cout << std::endl;
-  if (ast->type == cat_node) {
+  if (ast->type == cat_node || ast->type == or_node) {
     printAST(ast->left);
     printAST(ast->right);
   }
@@ -271,6 +334,10 @@ void computeFpos(
         (*followpos)[j], right->fpos
       );
     }
+    computeFpos(followpos, left);
+    computeFpos(followpos, right);
+  }
+  if (ast->type == or_node) {
     computeFpos(followpos, left);
     computeFpos(followpos, right);
   }
