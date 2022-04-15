@@ -65,6 +65,18 @@ testFromAST() {
   return 0;
 }
 
+minimization() {
+  Automata A(
+    { 'a' },
+    { 0, 1, 2, 3 },
+    0,
+    { 0, 2 },
+    { { 1 }, { 2 }, { 3 }, { 0 } }
+  );
+  Automata* B = minimize(&A);
+  return 0;
+}
+
 interactive() {
   char* str = (char*)malloc(1024 * sizeof(char));
 
@@ -97,7 +109,7 @@ interactive() {
 }
 
 main(int argc, char** argv) {
-  interactive();
+  minimization();
 
   return 0;
 }

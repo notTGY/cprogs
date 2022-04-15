@@ -152,7 +152,7 @@ AST* fromString(const char* str) {
             return nullptr;
           }
           deepness--;
-          if (deepness == 0) openLast = &str[i];
+          if (deepness == 0 && partitionNumber == 1) openLast = &str[i];
           break;
         case '|':
           if (deepness != 0) break;
@@ -201,16 +201,16 @@ AST* fromString(const char* str) {
       )
     ) {
       // if we have situation like this ...(...) or ...(...)*
+      int lenLeft = openLast - str;
+      char* left = new char[lenLeft + 1];
+      memcpy((void *)left, (const void *)str, lenLeft);
+      left[lenLeft] = '\0';
+
       int lenRight = len - (openLast - str) + 1;
       char* right = new char[lenRight + 1];
       memcpy((void *)right, (const void *)openLast, lenRight);
       right[lenRight] = '\0';
 
-      int lenLeft = openLast - str;
-      char* left = new char[lenLeft + 1];
-      memcpy((void *)left, (const void *)str, lenLeft);
-      left[lenLeft] = '\0';
-      
       return createCat(left, right, false);
     } else if (str[len - 1] == '*') {
       // ...(...)...*
