@@ -132,11 +132,11 @@ AST* fromString(const char* str) {
 
   if (len == 1) return createLeaf(str[0]);
 
-  char* closing = strrchr(str, ')');
-  char* pipe = strrchr(str, '|');
+  const char* closing = strrchr(str, ')');
+  const char* pipe = strrchr(str, '|');
 
   if (closing) {
-    char* openFirst = strchr(str, '(');
+    const char* openFirst = strchr(str, '(');
     const char* openLast;
 
     int partitionNumber = 0;

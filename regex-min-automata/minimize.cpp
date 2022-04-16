@@ -1,6 +1,7 @@
 #include<algorithm>
 #include<iostream>
 #include<vector>
+#include"minimize.hpp"
 
 bool eq(
   std::vector<std::vector<int>> a,

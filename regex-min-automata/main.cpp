@@ -1,12 +1,11 @@
 #include<iostream>
 #include<vector>
-#include"types.hpp"
-#include"common.hpp"
-#include"Automata.cpp"
+#include"common.cpp"
 #include"AST.cpp"
+#include"Automata.cpp"
 #include"minimize.cpp"
 
-testFromAutomata() {
+int testFromAutomata() {
   Automata A(
     { 'a' },
     { 0, 1 },
@@ -23,7 +22,7 @@ testFromAutomata() {
   return 0;
 }
 
-testFromAST() {
+int testFromAST() {
   AST* left = createStar("a");
   AST* right = createHash();
 
@@ -65,7 +64,7 @@ testFromAST() {
   return 0;
 }
 
-minimization() {
+int minimization() {
   Automata A(
     { 'a' },
     { 0, 1, 2, 3 },
@@ -77,7 +76,7 @@ minimization() {
   return 0;
 }
 
-interactive() {
+int interactive() {
   char* str = (char*)malloc(1024 * sizeof(char));
 
   std::cin >> str;
@@ -108,7 +107,7 @@ interactive() {
   return 0;
 }
 
-main(int argc, char** argv) {
+int main(int argc, char** argv) {
   minimization();
 
   return 0;

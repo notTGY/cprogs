@@ -1,2 +1,8 @@
+# useless files
+*.o
+*.gcov
+*.gcda
+*.gcno
+
+# test build
 *.exe
-*.out

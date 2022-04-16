@@ -1,3 +1,7 @@
+#ifndef AUTOMATA_MIN_REGEX_AUTOMATA
+#define AUTOMATA_MIN_REGEX_AUTOMATA
+#include"common.hpp"
+#include"AST.hpp"
 class Automata {
   public:
 
@@ -75,4 +79,4 @@ class Automata {
 };
 
 Automata* fromAST(AST* ast);
-
+#endif
