@@ -72,7 +72,9 @@ int minimization() {
     { 0, 2 },
     { { 1 }, { 2 }, { 3 }, { 0 } }
   );
+  std::cout << A;
   Automata* B = minimize(&A);
+  std::cout << *B;
   return 0;
 }
 
@@ -107,8 +109,16 @@ int interactive() {
   return 0;
 }
 
+int result() {
+  char* str = (char*)malloc(1024 * sizeof(char));
+  std::cin >> str;
+  Automata* A = minFromREGEX(str);
+  std::cout << *A;
+  return 0;
+}
+
 int main(int argc, char** argv) {
-  minimization();
+  result();
 
   return 0;
 }

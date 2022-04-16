@@ -77,6 +77,7 @@ void add(
   }
 
   // if merging
+  pushIfFree(item_a, dic);
   for (int i = 0; i < dic->size(); i++) {
     if (i == item_a) continue;
     auto set = (*dic)[i];
@@ -92,8 +93,7 @@ void add(
       set = {};
     }
   }
-  pushIfFree(item_a, dic);
-  pushIfFree(item_b, dic);
+  push(item_b, &((*dic)[item_a]));
 }
 
 // https://www.geeksforgeeks.org/minimization-of-dfa/
@@ -102,6 +102,7 @@ Automata* minimize(Automata* A) {
   std::vector<std::vector<int>> partition = {{},{}};
   auto T = A->T;
   auto Q = A->Q;
+  auto q0 = A->q0;
   auto Q_f = A->Q_f;
   auto f = A->f;
 
@@ -116,16 +117,19 @@ Automata* minimize(Automata* A) {
   
   while (!eq(prevPartition, partition)) {
 
-  std::cout << "Partition:\n";
-  for (int i = 0; i < partition.size(); i++) {
-    std::cout << i << ":";
-    auto set = partition[i];
-    std::sort(set.begin(), set.end());
-    for (int j = 0; j < set.size(); j++) {
-      std::cout << " " << set[j];
+  // logging
+  /*
+    std::cout << "Partition:\n";
+    for (int i = 0; i < partition.size(); i++) {
+      std::cout << i << ":";
+      auto set = partition[i];
+      std::sort(set.begin(), set.end());
+      for (int j = 0; j < set.size(); j++) {
+        std::cout << " " << set[j];
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
-  }
+  */
 
     prevPartition = partition;
     partition = {};
@@ -162,6 +166,54 @@ Automata* minimize(Automata* A) {
     }
   }
 
-  return A;
+  std::vector<int> newQ = {};
+  std::vector<int> newQ_f = {};
+  int newQ0;
+  for (int i = 0; i < partition.size(); i++) {
+    // states
+    newQ.push_back(i);
+
+    // start state
+    if (
+      std::find(
+        partition[i].begin(),
+        partition[i].end(),
+        q0
+      ) != partition[i].end()
+    ) newQ0 = i;
+
+    //final state
+    for (int j = 0; j < Q_f.size(); j++) {
+      auto item = Q_f[j];
+      if (
+        std::find(
+          partition[i].begin(),
+          partition[i].end(),
+          item
+        ) != partition[i].end()
+      ) push(i, &newQ_f);
+    }
+  }
+  std::vector<std::vector<int>> newF;
+  newF.resize(newQ.size());
+  for (int i = 0; i < newQ.size(); i++) {
+    newF[i].resize(T.size());
+    for (int j = 0; j < T.size(); j++)
+      newF[i][j] = f[partition[i][0]][j];
+  }
+
+  return new Automata(
+    T,
+    newQ,
+    newQ0,
+    newQ_f,
+    newF
+  );
+}
+
+Automata* minFromREGEX(const char* regex) {
+  AST* ast = fromREGEX(regex);
+  Automata* A = fromAST(ast);
+  return minimize(A);
 }
 
