@@ -69,15 +69,12 @@ void add(
   bool apart,
   std::vector<std::vector<int>> *dic
 ) {
+  pushIfFree(item_a, dic);
+  pushIfFree(item_b, dic);
   // if not merging
-  if (apart) {
-    pushIfFree(item_a, dic);
-    pushIfFree(item_b, dic);
-    return;
-  }
+  if (apart) { return; }
 
   // if merging
-  pushIfFree(item_a, dic);
   for (int i = 0; i < dic->size(); i++) {
     if (i == item_a) continue;
     auto set = (*dic)[i];
@@ -90,10 +87,9 @@ void add(
       for (int j = 0; j < set.size(); j++) {
         push(set[j], &((*dic)[item_a]));
       }
-      set = {};
+      set.clear();
     }
   }
-  push(item_b, &((*dic)[item_a]));
 }
 
 // https://www.geeksforgeeks.org/minimization-of-dfa/
@@ -107,13 +103,13 @@ Automata* minimize(Automata* A) {
   auto f = A->f;
 
   for (int i = 0; i < Q_f.size(); i++)
-    push(Q_f[i], &partition[0]);
+    push(Q_f[i], &partition[1]);
   for (int i = 0; i < Q.size(); i++)
     if (
       std::find(
         Q_f.begin(), Q_f.end(), Q[i]
       ) == Q_f.end()
-    ) push(Q[i], &partition[1]);
+    ) push(Q[i], &partition[0]);
   
   while (!eq(prevPartition, partition)) {
 
@@ -161,7 +157,18 @@ Automata* minimize(Automata* A) {
       // cleanup subset and push it into new partition
       for (int i = 0; i < subset.size(); i++) {
         auto set = subset[i];
-        if (!set.empty()) partition.push_back(set);
+        if (!set.empty()) {
+          bool willPush = true;
+          for (int j = 0; j < set.size(); j++) {
+            for (int n = 0; n < partition.size(); n++) {
+              if (std::find(
+                  partition[n].begin(), partition[n].end(), set[j]
+                ) != partition[n].end()
+              ) willPush = false;
+            }
+          }
+          if (willPush) partition.push_back(set);
+        }
       }
     }
   }
@@ -198,8 +205,17 @@ Automata* minimize(Automata* A) {
   newF.resize(newQ.size());
   for (int i = 0; i < newQ.size(); i++) {
     newF[i].resize(T.size());
-    for (int j = 0; j < T.size(); j++)
-      newF[i][j] = f[partition[i][0]][j];
+    for (int j = 0; j < T.size(); j++) {
+	    int oldState = f[partition[i][0]][j];
+      int newState = 0;
+      for (int k = 0; k < partition.size(); k++) {
+        if (std::find(
+            partition[k].begin(), partition[k].end(), oldState
+          ) != partition[k].end()
+        ) newState = k;
+      }
+      newF[i][j] = newState;
+    }
   }
 
   return new Automata(

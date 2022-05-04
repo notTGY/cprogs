@@ -1,5 +1,6 @@
 #ifndef AST_MIN_REGEX_AUTOMATA
 #define AST_MIN_REGEX_AUTOMATA
+#include"common.hpp"
 AST* createLeaf(int val);
 AST* createHash();
 AST* createStar(const char* content);
