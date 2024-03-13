@@ -7,7 +7,6 @@ public:
 
     // Конструкторы
     C(double real = 0, double imag = 0) : re(real), im(imag) {} // конструктор от пары чисел
-    C(double real) : re(real), im(0) {} // конструктор от одного числа
     C(const C& other) : re(other.re), im(other.im) {} // конструктор копирования
 
     // Арифметические операции
