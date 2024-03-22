@@ -6,7 +6,7 @@ private:
 
 public:
     // конструктор
-    Game_Hero(int health = 10, bool zombie = false) : health_(health), isZombie_(zombie), isDead_(health == 0) {}
+    Game_Hero(int health = 10, bool zombie = false) : health_(health), isZombie_(zombie), isDead_(health <= 0) {}
 
     // методы
     bool isDead() { return isDead_; }

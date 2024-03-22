@@ -1,3 +1,7 @@
+#include <iostream>
+#include <algorithm>
+#include <vector>
+
 Coord getPoint() {
   Coord tmp;
   cin>>tmp.x>>tmp.y;
@@ -25,14 +29,17 @@ int cmp(Triangle a, Triangle b) {
   uint64_t db2 = getDistSq(b.p1, b.p3);
   uint64_t db3 = getDistSq(b.p2, b.p3);
 
-  int64_t cda2 = da2 - da1;
-  int64_t cda3 = da3 - da1;
+  std::vector<uint64_t> da{da1, da2, da3};
+  std::vector<uint64_t> db{db1, db2, db3};
 
-  int64_t cdb2 = db2 - db1;
-  int64_t cdb3 = db3 - db1;
+  std::sort(da.begin(), da.end());
+  std::sort(db.begin(), db.end());
 
-  if (cdb2 == cda2 && cdb3 == cda3) return 1;
-  if (cdb3 == cda2 && cdb2 == cda3) return 1;
+  for (int i = 0; i < 3; i++) {
+    if (da[i] != db[i]) {
+      return 0;
+    }
+  }
 
-  return 0;
+  return 1;
 }
