@@ -4,6 +4,12 @@
 #include <time.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <errno.h>
+
+// https://stackoverflow.com/a/26769672
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
 
 
 int power(int n) {
@@ -29,7 +35,7 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   if (size < 2) {
-    printf("This program requires at least 2 processes");
+    perror("This program requires at least 2 processes");
     MPI_Finalize();
     return 1;
   }
@@ -58,7 +64,7 @@ int main(int argc, char **argv) {
 
     buf = (char*)malloc(sizeof(char) * payload_size);
     if (!buf) {
-      printf("failed to allocate %d bytes", payload_size);
+      perror("failed to allocate");
       MPI_Finalize();
       return 1;
     }
@@ -74,10 +80,10 @@ int main(int argc, char **argv) {
       MPI_Recv(buf, payload_size, MPI_CHAR, other_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
       if (clock_gettime(CLOCK_REALTIME, &tms)) {
-        printf("Failed to get time");
+        perror("Failed to get time");
         free(buf);
         MPI_Finalize();
-        return -1;
+        return 1;
       }
       int64_t start = tms.tv_sec * 1000000;
       start += tms.tv_nsec/1000;
@@ -88,10 +94,10 @@ int main(int argc, char **argv) {
       }
 
       if (clock_gettime(CLOCK_REALTIME, &tms)) {
-        printf("Failed to get time");
+        perror("Failed to get time");
         free(buf);
         MPI_Finalize();
-        return -1;
+        return 1;
       }
       int64_t end = tms.tv_sec * 1000000;
       end += tms.tv_nsec/1000;
