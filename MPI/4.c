@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <mpi.h>
 
 #define ind(i, j) (((i + l->nx) % l->nx) + ((j + l->ny) % l->ny) * (l->nx))
 
@@ -14,15 +15,24 @@ typedef struct {
 	int *u1;
 	int steps;
 	int save_steps;
+
+	/* MPI */
+	int start, stop;
+	int rank;
+	int size;
+	MPI_Datatype block_type;
 } life_t;
 
 void life_init(const char *path, life_t *l);
 void life_free(life_t *l);
 void life_step(life_t *l);
 void life_save_vtk(const char *path, life_t *l);
+void life_collect(life_t *l);
+void decompisition(const int n, const int p, const int k, int *start, int *stop);
 
 int main(int argc, char **argv)
 {
+	MPI_Init(&argc, &argv);
 	if (argc != 2) {
 		printf("Usage: %s input file.\n", argv[0]);
 		return 0;
@@ -34,15 +44,35 @@ int main(int argc, char **argv)
 	char buf[100];
 	for (i = 0; i < l.steps; i++) {
 		if (i % l.save_steps == 0) {
-			sprintf(buf, "vtk/life_%06d.vtk", i);
-			printf("Saving step %d to '%s'.\n", i, buf);
-			life_save_vtk(buf, &l);
+			life_collect(&l);
+			if (l.rank == l.size - 1) {
+				sprintf(buf, "vtk/life_%06d.vtk", i);
+				printf("Saving step %d to '%s'.\n", i, buf);
+				life_save_vtk(buf, &l);
+			}
 		}
 		life_step(&l);
 	}
 	
 	life_free(&l);
+	MPI_Finalize();
 	return 0;
+}
+
+void life_collect(life_t *l)
+{
+	if (l->rank == l->size - 1) {
+		int i;
+		for(i = 0; i < l->size - 1; i++) {
+			int s1, s2;
+			decompisition(l->nx, l->size, i, &s1, &s2);
+			MPI_Recv(l->u0 + ind(s1, 0), 1, 
+					l->block_type, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		}
+	} else {
+		MPI_Send(l->u0 + ind(l->start, 0), 1, 
+			l->block_type, l->size - 1, 0, MPI_COMM_WORLD);
+	}
 }
 
 /**
@@ -75,6 +105,17 @@ void life_init(const char *path, life_t *l)
 	}
 	printf("Loaded %d life cells.\n", cnt);
 	fclose(fd);
+
+
+	/* MPI */
+	MPI_Comm_size(MPI_COMM_WORLD, &(l->size));
+	MPI_Comm_rank(MPI_COMM_WORLD, &(l->rank));
+	decompisition(l->nx, l->size, l->rank, &(l->start), &(l->stop));
+
+	int s1, s2;
+	decompisition(l->nx, l->size, 0, &s1, &s2);
+	MPI_Type_vector(l->ny, s2 - s1, l->nx, MPI_INT, &(l->block_type));
+	MPI_Type_commit(&(l->block_type));
 }
 
 void life_free(life_t *l)
@@ -82,6 +123,7 @@ void life_free(life_t *l)
 	free(l->u0);
 	free(l->u1);
 	l->nx = l->ny = 0;
+	MPI_Type_free(&(l->block_type));
 }
 
 void life_save_vtk(const char *path, life_t *l)
@@ -113,7 +155,7 @@ void life_step(life_t *l)
 {
 	int i, j;
 	for (j = 0; j < l->ny; j++) {
-		for (i = 0; i < l->nx; i++) {
+		for (i = l->start; i < l->stop; i++) {
 			int n = 0;
 			n += l->u0[ind(i+1, j)];
 			n += l->u0[ind(i+1, j+1)];
@@ -130,6 +172,7 @@ void life_step(life_t *l)
 			if ((n == 3 || n == 2) && l->u0[ind(i,j)] == 1) {
 				l->u1[ind(i,j)] = 1;
 			}
+			l->u1[ind(i,j)] = l->rank;
 		}
 	}
 	int *tmp;
@@ -138,3 +181,10 @@ void life_step(life_t *l)
 	l->u1 = tmp;
 }
 
+void decompisition(const int n, const int p, const int k, int *start, int *stop)
+{
+	int l = n / p; // длинна куска
+	*start = l * k;
+	*stop = *start + l;
+	if (k == p - 1) *stop = n;
+}
