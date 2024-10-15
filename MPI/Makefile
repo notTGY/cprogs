@@ -1,5 +1,5 @@
 3: 3.out clear_vtk
-	mpiexec -n 4 ./3.out ./life/conf1.cfg
+	mpiexec -n 4 ./3.out ./life/glider_10x10.cfg
 3.out: 3.c
 	mpicc 3.c -lm -o 3.out
 clear_vtk:

@@ -156,7 +156,6 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
   int nstop = 0;
   int nstart = 0;
 	decompisition(l->ny, l->size, nrank, &nstart, &nstop);
-  int nlen = nstop - nstart;
 
   if (l->rank == 0 && should_save) {
     f = fopen(path, "w");
@@ -176,9 +175,10 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
   
   int buf[100];
   if (l->rank > 0) {
+    // receive from previous
     MPI_Recv(
-      &l->u0[ind(0, pstart)],
-      l->nx * plen,
+      &l->u0[ind(0, pstop-1)],
+      l->nx,
       MPI_INT,
       prank,
       0,
@@ -203,8 +203,8 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
   if (l->size > 1) {
     // send to next process
     MPI_Send(
-      &l->u0[ind(0, l->start)],
-      l->nx * len,
+      &l->u0[ind(0, l->stop - 1)],
+      l->nx,
       MPI_INT,
       nrank,
       0,
@@ -213,7 +213,7 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
     // send to previous process
     MPI_Send(
       &l->u0[ind(0, l->start)],
-      l->nx * len,
+      l->nx,
       MPI_INT,
       prank,
       0,
@@ -223,7 +223,7 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
     // block by next process
     MPI_Recv(
       &l->u0[ind(0, nstart)],
-      l->nx * nlen,
+      l->nx,
       MPI_INT,
       nrank,
       0,
@@ -234,8 +234,8 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
     // additionally block first process till last is done
     if (l->rank == 0) {
       MPI_Recv(
-        &l->u0[ind(0, pstart)],
-        l->nx * plen,
+        &l->u0[ind(0, pstop - 1)],
+        l->nx,
         MPI_INT,
         prank,
         0,
