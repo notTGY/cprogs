@@ -6,6 +6,13 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <time.h>
+#include <errno.h>
+
+// https://stackoverflow.com/a/26769672
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
 
 #define ind(i, j) (((i + l->nx) % l->nx) + ((j + l->ny) % l->ny) * (l->nx))
 
@@ -38,6 +45,15 @@ int main(int argc, char **argv)
 	life_t l;
 	life_init(argv[1], &l);
 	
+  struct timespec tms;
+  if (clock_gettime(CLOCK_REALTIME, &tms)) {
+    perror("Failed to get time");
+    MPI_Finalize();
+    return 1;
+  }
+  int64_t start = tms.tv_sec * 1000000;
+  start += tms.tv_nsec/1000;
+
 	int i;
 	char buf[100];
 	for (i = 0; i < l.steps; i++) {
@@ -50,6 +66,19 @@ int main(int argc, char **argv)
 	}
 	
 	life_free(&l);
+
+  if (clock_gettime(CLOCK_REALTIME, &tms)) {
+    perror("Failed to get time");
+    MPI_Finalize();
+    return 1;
+  }
+  int64_t end = tms.tv_sec * 1000000;
+  end += tms.tv_nsec/1000;
+
+  if (l.rank == 0) {
+    printf("took %ld\n", end - start);
+  }
+
 	MPI_Finalize();
 	return 0;
 }
@@ -251,5 +280,5 @@ void decompisition(const int n, const int p, const int k, int *start, int *stop)
 	int l = n / p; // длинна куска
 	*start = l * k;
 	*stop = *start + l;
-	if (k == n - 1) *stop = n;
+	if (k == p - 1) *stop = n;
 }
