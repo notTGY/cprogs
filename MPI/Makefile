@@ -1,10 +1,10 @@
 4: 4.out clear_vtk
-	mpiexec -n 4 ./4.out ./life/glider_10x10.cfg
+	mpiexec -n 2 ./4.out ./life/glider_10x10.cfg
 4.out: 4.c
 	mpicc 4.c -lm -o 4.out
 
 3: 3.out clear_vtk
-	mpiexec -n 4 ./3.out ./life/glider_10x10.cfg
+	mpiexec -n 4 ./3.out ./life/conf1.cfg
 3.out: 3.c
 	mpicc 3.c -lm -o 3.out
 clear_vtk:

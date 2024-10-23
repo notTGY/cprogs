@@ -115,8 +115,6 @@ void life_init(const char *path, life_t *l)
 
   printf("stop: %d; start: %d\n", l->stop, l->start);
 
-  int len = l->stop - l->start;
-
 
 	l->u0 = (int*)calloc(l->nx * l->ny, sizeof(int));
 	l->u1 = (int*)calloc(l->nx * l->ny, sizeof(int));
@@ -144,7 +142,6 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
 {
 	FILE *f;
 	int i1, i2, j;
-  int len = l->stop - l->start;
 
   int prank = (l->size + l->rank - 1) % l->size;
   int pstop = 0;

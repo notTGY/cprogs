@@ -6,8 +6,19 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <time.h>
+#include <errno.h>
+
+// https://stackoverflow.com/a/26769672
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
 
 #define ind(i, j) (((i + l->nx) % l->nx) + ((j + l->ny) % l->ny) * (l->nx))
+
+#define false 0
+#define true 1
+#define DEBUG true
 
 typedef struct {
 	int nx, ny;
@@ -28,6 +39,7 @@ void life_free(life_t *l);
 void life_step(life_t *l);
 void life_save_vtk(const char *path, life_t *l);
 void life_collect(life_t *l);
+void life_gather(const char *path, life_t *l, int should_save);
 void decompisition(const int n, const int p, const int k, int *start, int *stop);
 
 int main(int argc, char **argv)
@@ -39,31 +51,65 @@ int main(int argc, char **argv)
 	}
 	life_t l;
 	life_init(argv[1], &l);
+
+  struct timespec tms;
+  if (clock_gettime(CLOCK_REALTIME, &tms)) {
+    perror("Failed to get time");
+    MPI_Finalize();
+    return 1;
+  }
+  int64_t start = tms.tv_sec * 1000000;
+  start += tms.tv_nsec/1000;
 	
 	int i;
 	char buf[100];
+  sprintf(buf, "vtk/life_%06d.vtk", 0);
+
 	for (i = 0; i < l.steps; i++) {
-		if (i % l.save_steps == 0) {
-			life_collect(&l);
-			if (l.rank == l.size - 1) {
-				sprintf(buf, "vtk/life_%06d.vtk", i);
+    int should_save = i % l.save_steps == 0;
+    if (should_save) {
+      sprintf(buf, "vtk/life_%06d.vtk", i);
+    }
+    life_gather(buf, &l, should_save);
+    /*
+		if () {
+      life_collect(&l);
+			if (l.rank == 0) {
 				printf("Saving step %d to '%s'.\n", i, buf);
 				life_save_vtk(buf, &l);
 			}
 		}
+    */
 		life_step(&l);
 	}
 	
 	life_free(&l);
+
+  if (clock_gettime(CLOCK_REALTIME, &tms)) {
+    perror("Failed to get time");
+    MPI_Finalize();
+    return 1;
+  }
+  int64_t end = tms.tv_sec * 1000000;
+  end += tms.tv_nsec/1000;
+
+  if (l.rank == 0) {
+    printf("took %ld\n", end - start);
+  }
+
 	MPI_Finalize();
 	return 0;
 }
 
 void life_collect(life_t *l)
 {
-	if (l->rank == l->size - 1) {
+  //printf("%d collecting\n", l->rank);
+  if (l->size == 1) {
+    return;
+  }
+	if (l->rank == 0) {
 		int i;
-		for(i = 0; i < l->size - 1; i++) {
+		for(i = 1; i <= l->size - 1; i++) {
 			int s1, s2;
 			decompisition(l->nx, l->size, i, &s1, &s2);
 			MPI_Recv(l->u0 + ind(s1, 0), 1, 
@@ -71,8 +117,131 @@ void life_collect(life_t *l)
 		}
 	} else {
 		MPI_Send(l->u0 + ind(l->start, 0), 1, 
+			l->block_type, 0, 0, MPI_COMM_WORLD);
+	}
+  //printf("%d collected\n", l->rank);
+}
+
+void life_gather(const char* path, life_t *l, int should_save)
+{
+	FILE *f;
+	int i1, i2, j;
+
+  int prank = (l->size + l->rank - 1) % l->size;
+  int pstop = 0;
+  int pstart = 0;
+	decompisition(l->nx, l->size, prank, &pstart, &pstop);
+  int plen = pstop - pstart;
+
+  int nrank = (l->size + l->rank + 1) % l->size;
+  int nstop = 0;
+  int nstart = 0;
+	decompisition(l->nx, l->size, nrank, &nstart, &nstop);
+
+  if (l->rank == 0 && should_save) {
+    f = fopen(path, "w");
+    if (f == NULL) {
+      perror("failed to open file");
+    }
+    assert(f);
+    fprintf(f, "# vtk DataFile Version 3.0\n");
+    fprintf(f, "Created by write_to_vtk2d\n");
+    fprintf(f, "ASCII\n");
+    fprintf(f, "DATASET STRUCTURED_POINTS\n");
+    fprintf(f, "DIMENSIONS %d %d 1\n", l->nx+1, l->ny+1);
+    fprintf(f, "SPACING %d %d 0.0\n", 1, 1);
+    fprintf(f, "ORIGIN %d %d 0.0\n", 0, 0);
+    fprintf(f, "CELL_DATA %d\n", l->nx * l->ny);
+    
+    fprintf(f, "SCALARS life int 1\n");
+    fprintf(f, "LOOKUP_TABLE life_table\n");
+    if (DEBUG) {
+      printf("%d, opened\n", l->rank);
+    }
+  }
+
+  if (DEBUG) {
+    printf(
+      "%d, gathering. nrank: %d. prank: %d\n",
+      l->rank,
+      nrank,
+      prank
+    );
+  }
+
+
+  if (l->rank > 0) {
+    if (DEBUG) {
+      printf("%d, recv\n", l->rank);
+    }
+    MPI_Recv(l->u0 + ind(pstart, 0), 1, 
+        l->block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if (should_save) {
+      f = fopen(path, "a");
+      assert(f);
+      if (DEBUG) {
+        printf("%d, opened\n", l->rank);
+      }
+    }
+  }
+
+  if (DEBUG) {
+    printf("%d, saving\n", l->rank);
+  }
+  if (should_save) {
+    for (i2 = 0; i2 < l->ny; i2++) {
+      for (i1 = l->start; i1 <= l->stop; i1++) {
+        fprintf(f, "%d\n", l->u0[ind(i1, i2)]);
+      }
+    }
+    fclose(f);
+  }
+  if (DEBUG) {
+    printf("%d, saved\n", l->rank);
+  }
+
+  if (l->size > 1) {
+    if (DEBUG) {
+      printf("%d, send\n", l->rank);
+    }
+    MPI_Send(l->u0 + ind(l->start, 0), 1, 
+      l->block_type, nrank, 0, MPI_COMM_WORLD);
+    if (DEBUG) {
+      printf("%d, send\n", l->rank);
+    }
+    MPI_Send(l->u0 + ind(l->start, 0), 1, 
+      l->block_type, prank, 0, MPI_COMM_WORLD);
+    if (DEBUG) {
+      printf("%d, recv\n", l->rank);
+    }
+    MPI_Recv(l->u0 + ind(nstart, 0), 1, 
+        l->block_type, nrank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    if (l->rank == 0) {
+      if (DEBUG) {
+        printf("%d, recv\n", l->rank);
+      }
+      MPI_Recv(l->u0 + ind(pstart, 0), 1, 
+          l->block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+  }
+  if (DEBUG) {
+    printf("%d, gathered\n", l->rank);
+  }
+
+  /*
+	if (l->rank == l->size - 1) {
+		int i;
+		for(i = 0; i < l->size - 1; i++) {
+			int s1, s2;
+			//decompisition(l->nx, l->size, i, &s1, &s2);
+			MPI_Recv(l->u0 + ind(s1, 0), 1, 
+					l->block_type, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		}
+	} else {
+		MPI_Send(l->u0 + ind(l->start, 0), 1, 
 			l->block_type, l->size - 1, 0, MPI_COMM_WORLD);
 	}
+  */
 }
 
 /**
@@ -90,9 +259,13 @@ void life_init(const char *path, life_t *l)
 	assert(fd);
 	assert(fscanf(fd, "%d\n", &l->steps));
 	assert(fscanf(fd, "%d\n", &l->save_steps));
-	printf("Steps %d, save every %d step.\n", l->steps, l->save_steps);
+  if (l->rank == 0) {
+    printf("Steps %d, save every %d step.\n", l->steps, l->save_steps);
+  }
 	assert(fscanf(fd, "%d %d\n", &l->nx, &l->ny));
-	printf("Field size: %dx%d\n", l->nx, l->ny);
+  if (l->rank == 0) {
+    printf("Field size: %dx%d\n", l->nx, l->ny);
+  }
 
 	l->u0 = (int*)calloc(l->nx * l->ny, sizeof(int));
 	l->u1 = (int*)calloc(l->nx * l->ny, sizeof(int));
@@ -103,17 +276,19 @@ void life_init(const char *path, life_t *l)
 		l->u0[ind(i, j)] = 1;
 		cnt++;
 	}
-	printf("Loaded %d life cells.\n", cnt);
+  if (l->rank == 0) {
+    printf("Loaded %d life cells.\n", cnt);
+  }
 	fclose(fd);
 
 
 	/* MPI */
 	MPI_Comm_size(MPI_COMM_WORLD, &(l->size));
 	MPI_Comm_rank(MPI_COMM_WORLD, &(l->rank));
-	decompisition(l->nx, l->size, l->rank, &(l->start), &(l->stop));
+	//decompisition(l->nx, l->size, l->rank, &(l->start), &(l->stop));
 
 	int s1, s2;
-	decompisition(l->nx, l->size, 0, &s1, &s2);
+	decompisition(l->nx, l->size, l->rank, &s1, &s2);
 	MPI_Type_vector(l->ny, s2 - s1, l->nx, MPI_INT, &(l->block_type));
 	MPI_Type_commit(&(l->block_type));
 }
