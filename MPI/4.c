@@ -16,9 +16,7 @@
 
 #define ind(i, j) (((i + l->nx) % l->nx) + ((j + l->ny) % l->ny) * (l->nx))
 
-#define false 0
-#define true 1
-#define DEBUG true
+#define DEBUG 0
 
 typedef struct {
 	int nx, ny;
@@ -70,16 +68,14 @@ int main(int argc, char **argv)
     if (should_save) {
       sprintf(buf, "vtk/life_%06d.vtk", i);
     }
-    life_gather(buf, &l, should_save);
-    /*
-		if () {
+    life_gather(buf, &l, 0);
+		if (should_save) {
       life_collect(&l);
 			if (l.rank == 0) {
 				printf("Saving step %d to '%s'.\n", i, buf);
 				life_save_vtk(buf, &l);
 			}
 		}
-    */
 		life_step(&l);
 	}
 	
@@ -186,15 +182,18 @@ void life_gather(const char* path, life_t *l, int should_save)
   }
 
   if (DEBUG) {
-    printf("%d, saving\n", l->rank);
+    printf("%d, saving. %d %d\n", l->rank, l->start, l->stop);
   }
   if (should_save) {
     for (i2 = 0; i2 < l->ny; i2++) {
-      for (i1 = l->start; i1 <= l->stop; i1++) {
+      for (i1 = l->start; i1 < l->stop; i1++) {
         fprintf(f, "%d\n", l->u0[ind(i1, i2)]);
       }
     }
     fclose(f);
+    if (DEBUG) {
+      printf("%d, closed\n", l->rank);
+    }
   }
   if (DEBUG) {
     printf("%d, saved\n", l->rank);
@@ -285,11 +284,11 @@ void life_init(const char *path, life_t *l)
 	/* MPI */
 	MPI_Comm_size(MPI_COMM_WORLD, &(l->size));
 	MPI_Comm_rank(MPI_COMM_WORLD, &(l->rank));
-	//decompisition(l->nx, l->size, l->rank, &(l->start), &(l->stop));
+	decompisition(l->nx, l->size, l->rank, &(l->start), &(l->stop));
 
-	int s1, s2;
-	decompisition(l->nx, l->size, l->rank, &s1, &s2);
-	MPI_Type_vector(l->ny, s2 - s1, l->nx, MPI_INT, &(l->block_type));
+	//int s1, s2;
+	//decompisition(l->nx, l->size, l->rank, &s1, &s2);
+	MPI_Type_vector(l->ny, l->stop - l->start, l->nx, MPI_INT, &(l->block_type));
 	MPI_Type_commit(&(l->block_type));
 }
 
@@ -347,7 +346,7 @@ void life_step(life_t *l)
 			if ((n == 3 || n == 2) && l->u0[ind(i,j)] == 1) {
 				l->u1[ind(i,j)] = 1;
 			}
-			l->u1[ind(i,j)] = l->rank;
+			//l->u1[ind(i,j)] = l->rank;
 		}
 	}
 	int *tmp;
