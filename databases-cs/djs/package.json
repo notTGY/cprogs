@@ -1,0 +1,21 @@
+{
+  "name": "djs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "gen": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "drizzle-orm": "^0.34.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.25.0"
+  }
+}
