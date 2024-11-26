@@ -258,6 +258,7 @@ void life_free(life_t *l)
 	free(l->u1);
 	l->nx = l->ny = 0;
 	MPI_Type_free(&(l->block_type));
+	MPI_Type_free(&(l->comm_block_type));
 }
 
 void life_save_vtk(const char *path, life_t *l)
