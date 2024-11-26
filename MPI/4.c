@@ -65,12 +65,8 @@ int main(int argc, char **argv)
   sprintf(buf, "vtk/life_%06d.vtk", 0);
 
 	for (i = 0; i < l.steps; i++) {
-    int should_save = i % l.save_steps == 0;
-    if (should_save) {
+		if (i % l.save_steps == 0) {
       sprintf(buf, "vtk/life_%06d.vtk", i);
-    }
-    life_gather(&l);
-		if (should_save) {
       life_collect(&l);
 			if (l.rank == 0) {
 				printf("Saving step %d to '%s'.\n", i, buf);
@@ -78,6 +74,7 @@ int main(int argc, char **argv)
 			}
 		}
 		life_step(&l);
+    life_gather(&l);
 	}
 	
 	life_free(&l);
