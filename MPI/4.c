@@ -30,6 +30,7 @@ typedef struct {
 	int rank;
 	int size;
 	MPI_Datatype block_type;
+	MPI_Datatype comm_block_type;
 } life_t;
 
 void life_init(const char *path, life_t *l);
@@ -37,7 +38,7 @@ void life_free(life_t *l);
 void life_step(life_t *l);
 void life_save_vtk(const char *path, life_t *l);
 void life_collect(life_t *l);
-void life_gather(const char *path, life_t *l, int should_save);
+int life_gather(life_t *l);
 void decompisition(const int n, const int p, const int k, int *start, int *stop);
 
 int main(int argc, char **argv)
@@ -68,7 +69,7 @@ int main(int argc, char **argv)
     if (should_save) {
       sprintf(buf, "vtk/life_%06d.vtk", i);
     }
-    life_gather(buf, &l, 0);
+    life_gather(&l);
 		if (should_save) {
       life_collect(&l);
 			if (l.rank == 0) {
@@ -118,9 +119,12 @@ void life_collect(life_t *l)
   //printf("%d collected\n", l->rank);
 }
 
-void life_gather(const char* path, life_t *l, int should_save)
+int life_gather(life_t *l)
 {
-	FILE *f;
+  if (l->size == 1) {
+    return 0;
+  }
+
 	int i1, i2, j;
 
   int prank = (l->size + l->rank - 1) % l->size;
@@ -134,98 +138,51 @@ void life_gather(const char* path, life_t *l, int should_save)
   int nstart = 0;
 	decompisition(l->nx, l->size, nrank, &nstart, &nstop);
 
-  if (l->rank == 0 && should_save) {
-    f = fopen(path, "w");
-    if (f == NULL) {
-      perror("failed to open file");
-    }
-    assert(f);
-    fprintf(f, "# vtk DataFile Version 3.0\n");
-    fprintf(f, "Created by write_to_vtk2d\n");
-    fprintf(f, "ASCII\n");
-    fprintf(f, "DATASET STRUCTURED_POINTS\n");
-    fprintf(f, "DIMENSIONS %d %d 1\n", l->nx+1, l->ny+1);
-    fprintf(f, "SPACING %d %d 0.0\n", 1, 1);
-    fprintf(f, "ORIGIN %d %d 0.0\n", 0, 0);
-    fprintf(f, "CELL_DATA %d\n", l->nx * l->ny);
-    
-    fprintf(f, "SCALARS life int 1\n");
-    fprintf(f, "LOOKUP_TABLE life_table\n");
-    if (DEBUG) {
-      printf("%d, opened\n", l->rank);
-    }
-  }
-
-  if (DEBUG) {
-    printf(
-      "%d, gathering. nrank: %d. prank: %d\n",
-      l->rank,
-      nrank,
-      prank
-    );
-  }
-
-
-  if (l->rank > 0) {
-    if (DEBUG) {
-      printf("%d, recv\n", l->rank);
-    }
-    MPI_Recv(l->u0 + ind(pstart, 0), 1, 
-        l->block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    if (should_save) {
-      f = fopen(path, "a");
-      assert(f);
-      if (DEBUG) {
-        printf("%d, opened\n", l->rank);
-      }
-    }
-  }
-
-  if (DEBUG) {
-    printf("%d, saving. %d %d\n", l->rank, l->start, l->stop);
-  }
-  if (should_save) {
-    for (i2 = 0; i2 < l->ny; i2++) {
-      for (i1 = l->start; i1 < l->stop; i1++) {
-        fprintf(f, "%d\n", l->u0[ind(i1, i2)]);
-      }
-    }
-    fclose(f);
-    if (DEBUG) {
-      printf("%d, closed\n", l->rank);
-    }
-  }
-  if (DEBUG) {
-    printf("%d, saved\n", l->rank);
-  }
-
-  if (l->size > 1) {
-    if (DEBUG) {
-      printf("%d, send\n", l->rank);
-    }
-    MPI_Send(l->u0 + ind(l->start, 0), 1, 
-      l->block_type, nrank, 0, MPI_COMM_WORLD);
-    if (DEBUG) {
-      printf("%d, send\n", l->rank);
-    }
-    MPI_Send(l->u0 + ind(l->start, 0), 1, 
-      l->block_type, prank, 0, MPI_COMM_WORLD);
-    if (DEBUG) {
-      printf("%d, recv\n", l->rank);
-    }
+  if (l->size % 2 && l->rank == l->size - 1) {
+    // send to next process
+    MPI_Send(l->u0 + ind(l->stop-1, 0), 1, 
+      l->comm_block_type, nrank, 0, MPI_COMM_WORLD);
+    // block by next process
     MPI_Recv(l->u0 + ind(nstart, 0), 1, 
-        l->block_type, nrank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    if (l->rank == 0) {
-      if (DEBUG) {
-        printf("%d, recv\n", l->rank);
-      }
-      MPI_Recv(l->u0 + ind(pstart, 0), 1, 
-          l->block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
+        l->comm_block_type, nrank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // send to previous process
+    MPI_Send(l->u0 + ind(l->start, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD);
+    // receive from previous
+    MPI_Recv(l->u0 + ind(pstop-1, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    return 0;
   }
-  if (DEBUG) {
-    printf("%d, gathered\n", l->rank);
+
+  if (l->rank % 2 == 0) {
+    // send to next process
+    MPI_Send(l->u0 + ind(l->stop-1, 0), 1, 
+      l->comm_block_type, nrank, 0, MPI_COMM_WORLD);
+    // block by next process
+    MPI_Recv(l->u0 + ind(nstart, 0), 1, 
+        l->comm_block_type, nrank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // send to previous process
+    MPI_Send(l->u0 + ind(l->start, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD);
+    // receive from previous
+    MPI_Recv(l->u0 + ind(pstop-1, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  } else {
+    // receive from previous
+    MPI_Recv(l->u0 + ind(pstop-1, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // send to previous process
+    MPI_Send(l->u0 + ind(l->start, 0), 1, 
+      l->comm_block_type, prank, 0, MPI_COMM_WORLD);
+    // block by next process
+    MPI_Recv(l->u0 + ind(nstart, 0), 1, 
+      l->comm_block_type, nrank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // send to next process
+    MPI_Send(l->u0 + ind(l->stop-1, 0), 1, 
+      l->comm_block_type, nrank, 0, MPI_COMM_WORLD);
   }
+  return 0;
 
   /*
 	if (l->rank == l->size - 1) {
@@ -290,6 +247,9 @@ void life_init(const char *path, life_t *l)
 	//decompisition(l->nx, l->size, l->rank, &s1, &s2);
 	MPI_Type_vector(l->ny, l->stop - l->start, l->nx, MPI_INT, &(l->block_type));
 	MPI_Type_commit(&(l->block_type));
+
+	MPI_Type_vector(l->ny, 1, l->nx, MPI_INT, &(l->comm_block_type));
+	MPI_Type_commit(&(l->comm_block_type));
 }
 
 void life_free(life_t *l)

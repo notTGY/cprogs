@@ -31,8 +31,8 @@ typedef struct {
 
 void life_init(const char *path, life_t *l);
 void life_free(life_t *l);
-void life_step(life_t *l);
-void life_save_vtk(const char *path, life_t *l, int should_save);
+int life_step(life_t *l);
+void life_save_vtk(const char *path, life_t *l);
 void decompisition(const int n, const int p, const int k, int *start, int *stop);
 
 int main(int argc, char **argv)
@@ -60,8 +60,8 @@ int main(int argc, char **argv)
 		if (i % l.save_steps == 0) {
 			sprintf(buf, "vtk/life_%06d.vtk", i);
 			// printf("Saving step %d to '%s'.\n", i, buf);
+      life_save_vtk(buf, &l);
 		}
-    life_save_vtk(buf, &l, i % l.save_steps == 0);
 		life_step(&l);
 	}
 	
@@ -138,23 +138,15 @@ void life_free(life_t *l)
 	l->nx = l->ny = 0;
 }
 
-void life_save_vtk(const char *path, life_t *l, int should_save)
+void life_save_vtk(const char *path, life_t *l)
 {
 	FILE *f;
 	int i1, i2, j;
 
   int prank = (l->size + l->rank - 1) % l->size;
-  int pstop = 0;
-  int pstart = 0;
-	decompisition(l->ny, l->size, prank, &pstart, &pstop);
-  int plen = pstop - pstart;
-
   int nrank = (l->size + l->rank + 1) % l->size;
-  int nstop = 0;
-  int nstart = 0;
-	decompisition(l->ny, l->size, nrank, &nstart, &nstop);
 
-  if (l->rank == 0 && should_save) {
+  if (l->rank == 0) {
     f = fopen(path, "w");
     assert(f);
     fprintf(f, "# vtk DataFile Version 3.0\n");
@@ -170,69 +162,46 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
     fprintf(f, "LOOKUP_TABLE life_table\n");
   }
   
-  int buf[100];
+  int buf[1];
+  buf[0] = 42;
+
   if (l->rank > 0) {
     // receive from previous
     MPI_Recv(
-      &l->u0[ind(0, pstop-1)],
-      l->nx,
+      buf,
+      1,
       MPI_INT,
       prank,
       0,
       MPI_COMM_WORLD,
       MPI_STATUS_IGNORE
     );
-    if (should_save) {
-      f = fopen(path, "a");
-      assert(f);
-    }
+    f = fopen(path, "a");
+    assert(f);
   }
 
-  if (should_save) {
-    for (i2 = l->start; i2 < l->stop; i2++) {
-      for (i1 = 0; i1 < l->nx; i1++) {
-        fprintf(f, "%d\n", l->u0[ind(i1, i2)]);
-      }
+  for (i2 = l->start; i2 < l->stop; i2++) {
+    for (i1 = 0; i1 < l->nx; i1++) {
+      fprintf(f, "%d\n", l->u0[ind(i1, i2)]);
     }
-    fclose(f);
   }
+  fclose(f);
 
   if (l->size > 1) {
     // send to next process
     MPI_Send(
-      &l->u0[ind(0, l->stop - 1)],
-      l->nx,
+      buf,
+      1,
       MPI_INT,
       nrank,
       0,
       MPI_COMM_WORLD
     );
-    // send to previous process
-    MPI_Send(
-      &l->u0[ind(0, l->start)],
-      l->nx,
-      MPI_INT,
-      prank,
-      0,
-      MPI_COMM_WORLD
-    );
-
-    // block by next process
-    MPI_Recv(
-      &l->u0[ind(0, nstart)],
-      l->nx,
-      MPI_INT,
-      nrank,
-      0,
-      MPI_COMM_WORLD,
-      MPI_STATUS_IGNORE
-    );
-
     // additionally block first process till last is done
     if (l->rank == 0) {
       MPI_Recv(
-        &l->u0[ind(0, pstop - 1)],
-        l->nx,
+        buf,
+        1,
         MPI_INT,
         prank,
         0,
@@ -243,7 +212,7 @@ void life_save_vtk(const char *path, life_t *l, int should_save)
   }
 }
 
-void life_step(life_t *l)
+int life_step(life_t *l)
 {
 	int i, j;
 	for (j = l->start; j < l->stop; j++) {
@@ -270,6 +239,145 @@ void life_step(life_t *l)
 	tmp = l->u0;
 	l->u0 = l->u1;
 	l->u1 = tmp;
+
+  if (l->size == 1) {
+    return 0;
+  }
+
+  int prank = (l->size + l->rank - 1) % l->size;
+  int pstop = 0;
+  int pstart = 0;
+	decompisition(l->ny, l->size, prank, &pstart, &pstop);
+  int plen = pstop - pstart;
+
+  int nrank = (l->size + l->rank + 1) % l->size;
+  int nstop = 0;
+  int nstart = 0;
+	decompisition(l->ny, l->size, nrank, &nstart, &nstop);
+
+  if (l->size % 2 && l->rank == l->size - 1) {
+    // send to next process
+    MPI_Send(
+      &l->u0[ind(0, l->stop - 1)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD
+    );
+    // block by next process
+    MPI_Recv(
+      &l->u0[ind(0, nstart)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+    // send to previous process
+    MPI_Send(
+      &l->u0[ind(0, l->start)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD
+    );
+    // receive from previous
+    MPI_Recv(
+      &l->u0[ind(0, pstop-1)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+    
+    return 0;
+  }
+
+  if (l->rank % 2 == 0) {
+    // send to next process
+    MPI_Send(
+      &l->u0[ind(0, l->stop - 1)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD
+    );
+    // block by next process
+    MPI_Recv(
+      &l->u0[ind(0, nstart)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+    // send to previous process
+    MPI_Send(
+      &l->u0[ind(0, l->start)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD
+    );
+    // receive from previous
+    MPI_Recv(
+      &l->u0[ind(0, pstop-1)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+  } else {
+    // receive from previous
+    MPI_Recv(
+      &l->u0[ind(0, pstop-1)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+    // send to previous process
+    MPI_Send(
+      &l->u0[ind(0, l->start)],
+      l->nx,
+      MPI_INT,
+      prank,
+      0,
+      MPI_COMM_WORLD
+    );
+    // block by next process
+    MPI_Recv(
+      &l->u0[ind(0, nstart)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD,
+      MPI_STATUS_IGNORE
+    );
+    // send to next process
+    MPI_Send(
+      &l->u0[ind(0, l->stop - 1)],
+      l->nx,
+      MPI_INT,
+      nrank,
+      0,
+      MPI_COMM_WORLD
+    );
+  }
+  return 0;
 }
 
 void decompisition(const int n, const int p, const int k, int *start, int *stop)
