@@ -18,9 +18,27 @@ int fib_par(int n) {
     #pragma omp sections
     {
       #pragma omp section
-      x = fib(n-1);
+      x = fib_par(n-1);
       #pragma omp section
-      y = fib(n-2);
+      y = fib_par(n-2);
+    }
+  }
+  return x + y;
+}
+
+// nt - number of times it can parallelize
+int fib_par_fixed(int n, int nt) {
+  if (n < 2) return 1;
+  unsigned long long int x, y;
+  if (nt < 2) return fib(n);
+  #pragma omp parallel num_threads(2)
+  {
+    #pragma omp sections
+    {
+      #pragma omp section
+      x = fib_par_fixed(n-1, nt/2);
+      #pragma omp section
+      y = fib_par_fixed(n-2, nt - nt/2);
     }
   }
   return x + y;
@@ -32,6 +50,9 @@ int main(int argc, char* *argv) {
     return 1;
   }
   int n = atoi(argv[1]);
-  printf("%d\n", fib(n));
+  int nt = omp_get_max_threads();
+  int res = fib_par_fixed(n, nt);
+  //int res = fib_par(n);
+  printf("%d\n", res);
   return 0;
 }

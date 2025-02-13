@@ -1,2 +1,2 @@
 fib:
-	gcc -fopenmp section.c && ./a.out 20
+	gcc -fopenmp section.c && ./a.out 30
