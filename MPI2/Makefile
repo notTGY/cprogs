@@ -1,5 +1,5 @@
 task:
-	gcc -fopenmp tasks.c && time ./a.out 10000000
+	gcc -fopenmp tasks.c && time ./a.out 30
 mmul:
 	mpicc mmul.c && mpiexec -n 1 ./a.out
 merge:

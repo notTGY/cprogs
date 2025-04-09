@@ -67,7 +67,7 @@ void merge_sort(int* a, int n, int nt) {
 
 int main(int argc, char* *argv) {
   if (argc < 2) {
-    printf("usage: %s 30\n", argv[0]);
+    printf("usage: %s 100000000\n", argv[0]);
     return 1;
   }
   int n = atoi(argv[1]);
@@ -77,10 +77,11 @@ int main(int argc, char* *argv) {
     a[i] = n - i;
   }
 
+  omp_set_num_threads(8);
   int nt = omp_get_max_threads();
+  //printf("threads: %d\n", nt);
   // this flag is actually needed
   omp_set_nested(1);
-  nt = 8;
 
   merge_sort(a, n, nt);
   //printArr(a, n);

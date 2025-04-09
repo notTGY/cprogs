@@ -42,7 +42,7 @@ void merge_sort(int* a, int n) {
   if (n < 2) {
     return;
   }
-  if (n < 8) {
+  if (n < 2500000) {
     merge_sort(a, n/2);
     merge_sort(a + n/2, n-n/2);
     merge(a, a, a+n/2, n/2, n-n/2);
@@ -65,21 +65,6 @@ void merge_sort(int* a, int n) {
   return;
 }
 
-int fib(int n) {
-  if (n < 2)
-    return n;
-  int i, j;
-
-#pragma omp task default(none) shared(i) firstprivate(n)
-  i = fib(n-1);
-#pragma omp task default(none) shared(j) firstprivate(n)
-  j = fib(n-2);
-
-
-#pragma omp taskwait
-  return i + j;
-}
-
 int main(int argc, char* *argv) {
   if (argc < 2) {
     printf("usage: %s 30\n", argv[0]);
@@ -92,6 +77,7 @@ int main(int argc, char* *argv) {
     a[i] = n - i;
   }
 
+  omp_set_num_threads(8);
   //printArr(a, n);
 
   #pragma omp parallel
