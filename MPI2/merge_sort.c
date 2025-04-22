@@ -9,7 +9,6 @@ void printArr(int* a, int n) {
   printf("\n");
 }
 
-
 void merge(int* res, int* f, int* s, int nf, int ns) {
   //printf("%d %d\n", nf, ns);
   //printArr(f, nf);
