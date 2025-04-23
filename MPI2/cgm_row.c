@@ -9,9 +9,8 @@
  */
 double local_dot(const double *a, const double *b, const int n_local)
 {
-    int i;
     double res = 0.0;
-    for (i = 0; i < n_local; i++) {
+    for (int i = 0; i < n_local; i++) {
         res += a[i] * b[i];
     }
     return res;
@@ -33,9 +32,8 @@ double par_dot(const double *a_local, const double *b_local, const int n_local, 
  */
 void addv(const double alpha, const double *a, const double beta, const double *b, const int n, double *c)
 {
-    int i;
-    for (i = 0; i < n; i++) {
-        c[i] = alpha *a[i] + beta * b[i];
+    for (int i = 0; i < n; i++) {
+        c[i] = alpha * a[i] + beta * b[i];
     }
 }
 
@@ -52,10 +50,9 @@ void copyv(const double *a, const int n, double *b)
  */
 void local_matvec(const double *A_local, const double *v_full, const int n_local, const int n, double *result_local)
 {
-    int i, j;
-    for (i = 0; i < n_local; i++) {
+    for (int i = 0; i < n_local; i++) {
         double sum = 0.0;
-        for (j = 0; j < n; j++) {
+        for (int j = 0; j < n; j++) {
             sum += A_local[i * n + j] * v_full[j];
         }
         result_local[i] = sum;
@@ -71,31 +68,6 @@ void gather_vector(const double *v_local, const int n_local, const int n, MPI_Co
 }
 
 /**
- * Read matrix from file on rank 0
- */
-void read_matrix(const char *path, double **A, int *m, int *n)
-{
-    int i, j;
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        perror("Cannot open file");
-        MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-    fscanf(f, "%d", m);
-    fscanf(f, "%d", n);
-    double *t = (double*)malloc(sizeof(double) * (*m) * (*n));
-    for (j = 0; j < *m; j++) {
-        for (i = 0; i < *n; i++) {
-            float fl;
-            fscanf(f, "%f", &fl);
-            t[i + (*n) * j] = fl;
-        }
-    }
-    fclose(f);
-    *A = t;
-}
-
-/**
  * Parallel CGM: x_local = A^-1 * b_local
  */
 void par_cgm(const double *A_local, const double *b_local, const int n, const int n_local, 
@@ -104,9 +76,8 @@ void par_cgm(const double *A_local, const double *b_local, const int n, const in
     double *r_local = (double*)malloc(sizeof(double) * n_local);
     double *p_local = (double*)malloc(sizeof(double) * n_local);
     double *ap_local = (double*)malloc(sizeof(double) * n_local);
-    double *v_full = (double*)malloc(sizeof(double) * n);  // Full vector for matvec
+    double *v_full = (double*)malloc(sizeof(double) * n);
 
-    // Initial residual: r = b - A * x
     gather_vector(x_local, n_local, n, comm, v_full);
     local_matvec(A_local, v_full, n_local, n, r_local);
     addv(1.0, b_local, -1.0, r_local, n_local, r_local);
@@ -146,100 +117,110 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (argc < 3) {
+    if (argc < 2) {
         if (rank == 0) {
-            printf("Usage: %s A b tolerance(default 1e-8) max_iter(default is b dimension)\n", argv[0]);
+            printf("Usage: %s N tolerance(default 1e-8) max_iter(default is N)\n", argv[0]);
         }
         MPI_Finalize();
-        exit(1);
+        return 1;
     }
 
-    int N, M;
-    double *A = NULL, *b = NULL;
-    double *A_local, *b_local, *x_local;
-
-    // Read matrix and vector on rank 0
-    if (rank == 0) {
-        read_matrix(argv[1], &A, &M, &N);
-        if (M != N) {
-            printf("Only square matrices are supported. Current matrix %dx%d.\n", M, N);
-            free(A);
-            MPI_Finalize();
-            exit(1);
+    int N = atoi(argv[1]);
+    if (N % size != 0) {
+        if (rank == 0) {
+            printf("N must be divisible by the number of processes.\n");
         }
-        read_matrix(argv[2], &b, &M, &N);
-        if (M * N != N) {
-            printf("Invalid b size %d.\n", M * N);
-            free(A);
-            free(b);
-            MPI_Finalize();
-            exit(1);
+        MPI_Finalize();
+        return 1;
+    }
+    int m = N / size;
+
+    // Allocate local R and temporary R for broadcasting
+    double *R_local = (double*)malloc(sizeof(double) * m * N);
+    double *R_temp = (double*)malloc(sizeof(double) * m * N);
+
+    // Generate local R with deterministic seed
+    srand(0);
+    for (int skip = 0; skip < rank * m * N; skip++) {
+        rand();
+    }
+    for (int i_local = 0; i_local < m; i_local++) {
+        for (int j = 0; j < N; j++) {
+            R_local[i_local * N + j] = (double)rand() / RAND_MAX * 10.0;
         }
     }
 
-    // Broadcast N to all processes
-    MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // Allocate A_local
+    double *A_local = (double*)malloc(sizeof(double) * m * N);
 
-    // Assuming N is divisible by size for simplicity
-    int n_local = N / size;
-    A_local = (double*)malloc(sizeof(double) * n_local * N);
-    b_local = (double*)malloc(sizeof(double) * n_local);
-    x_local = (double*)calloc(n_local, sizeof(double));
+    // Compute A_local = R_local * R^T using broadcasts
+    for (int proc = 0; proc < size; proc++) {
+        if (rank == proc) {
+            memcpy(R_temp, R_local, sizeof(double) * m * N);
+        }
+        MPI_Bcast(R_temp, m * N, MPI_DOUBLE, proc, MPI_COMM_WORLD);
+        for (int i_local = 0; i_local < m; i_local++) {
+            for (int j_local = 0; j_local < m; j_local++) {
+                double sum = 0.0;
+                for (int l = 0; l < N; l++) {
+                    sum += R_local[i_local * N + l] * R_temp[j_local * N + l];
+                }
+                A_local[i_local * N + (proc * m + j_local)] = sum;
+            }
+        }
+    }
 
-    // Distribute A and b
-    MPI_Scatter(A, n_local * N, MPI_DOUBLE, A_local, n_local * N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Scatter(b, n_local, MPI_DOUBLE, b_local, n_local, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    // Add 1 to diagonal elements
+    for (int i_local = 0; i_local < m; i_local++) {
+        int global_i = rank * m + i_local;
+        A_local[i_local * N + global_i] += 1.0;
+    }
 
+    // Compute b_local = A_local * ones(N)
+    double *b_local = (double*)malloc(sizeof(double) * m);
+    for (int i_local = 0; i_local < m; i_local++) {
+        b_local[i_local] = 0.0;
+        for (int j = 0; j < N; j++) {
+            b_local[i_local] += A_local[i_local * N + j];
+        }
+    }
+
+    // Initialize x_local
+    double *x_local = (double*)calloc(m, sizeof(double));
+
+    // Set CGM parameters
     int max_iter = N;
     double tol = 1e-8;
-    if (argc > 4 && rank == 0) {
-        max_iter = atoi(argv[4]);
-    }
-    if (argc > 3 && rank == 0) {
-        tol = atof(argv[3]);
-    }
+    if (argc > 2) tol = atof(argv[2]);
+    if (argc > 3) max_iter = atoi(argv[3]);
     MPI_Bcast(&max_iter, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&tol, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    par_cgm(A_local, b_local, N, n_local, &max_iter, &tol, x_local, MPI_COMM_WORLD);
+    // Run parallel CGM
+    par_cgm(A_local, b_local, N, m, &max_iter, &tol, x_local, MPI_COMM_WORLD);
 
-    // Gather solution x on rank 0
+    // Gather solution on rank 0
     double *x = NULL;
-    if (rank == 0) {
-        x = (double*)malloc(sizeof(double) * N);
-    }
-    MPI_Gather(x_local, n_local, MPI_DOUBLE, x, n_local, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) x = (double*)malloc(sizeof(double) * N);
+    MPI_Gather(x_local, m, MPI_DOUBLE, x, m, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // Output results on rank 0
+    // Output results
+    /*
     if (rank == 0) {
-        int i;
-        for (i = 0; i < N; i++) {
-            printf("%f ", x[i]);
-        }
+        for (int i = 0; i < N; i++) printf("%f ", x[i]);
         printf("\n");
         printf("tol %e\n", tol);
         printf("max_iter %d\n", max_iter);
-
-        double *t = (double*)calloc(N, sizeof(double));
-        double *Ax = (double*)calloc(N, sizeof(double));
-        for (i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                Ax[i] += A[i * N + j] * x[j];
-            }
-            t[i] = Ax[i] - b[i];
-        }
-        double res_norm = sqrt(local_dot(t, t, N));
-        printf("||A*x-b|| %e\n", res_norm);
-        free(t);
-        free(Ax);
-        free(x);
-        free(A);
-        free(b);
     }
+    */
 
+    // Clean up
+    free(R_local);
+    free(R_temp);
     free(A_local);
     free(b_local);
     free(x_local);
+    if (rank == 0) free(x);
 
     MPI_Finalize();
     return 0;
