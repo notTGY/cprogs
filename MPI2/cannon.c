@@ -24,7 +24,8 @@ typedef struct {
 MPI_Datatype local_matrix_mpi_t;
 
 LOCAL_MATRIX_T* Local_matrix_allocate(int n_bar) {
-    return (LOCAL_MATRIX_T*) malloc(sizeof(LOCAL_MATRIX_T));
+    LOCAL_MATRIX_T* matrix = (LOCAL_MATRIX_T*) malloc(sizeof(LOCAL_MATRIX_T));
+    return matrix;
 }
 
 void Free_local_matrix(LOCAL_MATRIX_T** local_A) {
@@ -55,12 +56,12 @@ void Build_matrix_type(LOCAL_MATRIX_T* local_A) {
     MPI_Aint start_address, address;
     MPI_Type_contiguous(Order(local_A) * Order(local_A), FLOAT_MPI, &temp_mpi_t);
     typelist[1] = temp_mpi_t;
-    MPI_Address(local_A, &start_address);
-    MPI_Address(&local_A->n_bar, &address);
+    MPI_Get_address(local_A, &start_address);
+    MPI_Get_address(&local_A->n_bar, &address);
     displacements[0] = address - start_address;
-    MPI_Address(local_A->entries, &address);
+    MPI_Get_address(local_A->entries, &address);
     displacements[1] = address - start_address;
-    MPI_Type_struct(2, block_lengths, displacements, typelist, &local_matrix_mpi_t);
+    MPI_Type_create_struct(2, block_lengths, displacements, typelist, &local_matrix_mpi_t);
     MPI_Type_commit(&local_matrix_mpi_t);
 }
 
@@ -187,7 +188,7 @@ int main(int argc, char* argv[]) {
 
     Build_matrix_type(local_A);
     Cannon(n, &grid, local_A, local_B, local_C);
-    Print_matrix("The product is", local_C, &grid, n);
+    //Print_matrix("The product is", local_C, &grid, n);
 
     Free_local_matrix(&local_A);
     Free_local_matrix(&local_B);

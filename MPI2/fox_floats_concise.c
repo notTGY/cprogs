@@ -17,7 +17,7 @@ typedef struct {
 typedef struct {
     int n_bar;
     #define Order(A) ((A)->n_bar)
-    FLOAT *entries;
+    FLOAT entries[MAX];
     #define Entry(A,i,j) (*(((A)->entries) + ((A)->n_bar)*(i) + (j)))
 } LOCAL_MATRIX_T;
 
@@ -25,12 +25,12 @@ MPI_Datatype local_matrix_mpi_t;
 
 LOCAL_MATRIX_T* Local_matrix_allocate(int n_bar) {
     LOCAL_MATRIX_T* matrix = (LOCAL_MATRIX_T*) malloc(sizeof(LOCAL_MATRIX_T));
-    matrix->entries = (FLOAT*) malloc(sizeof(FLOAT) * n_bar*n_bar);
+    //matrix->entries = (FLOAT*) malloc(sizeof(FLOAT) * n_bar*n_bar);
     return matrix;
 }
 
 void Free_local_matrix(LOCAL_MATRIX_T** local_A) {
-    free((*local_A)->entries);
+    //free((*local_A)->entries);
     free(*local_A);
 }
 
