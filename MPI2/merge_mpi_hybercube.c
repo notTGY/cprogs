@@ -94,11 +94,13 @@ int main(int argc, char* *argv) {
     return 1;
   }
   int n = atoi(argv[1]);
+  /*
   if (n % size != 0) {
     printf("Kindly provide n divisible by np\n");
     MPI_Finalize();
     return 1;
   }
+  */
 
   int* a = (int*) malloc(n * sizeof(int));
   for (int i = 0; i < n; i++) {
@@ -106,10 +108,13 @@ int main(int argc, char* *argv) {
   }
 
 
-  merge_sort_parallel(a, n, delve, 0);
 
   int nk = n / size;
   int start = nk * rank;
+  if (n % size != 0 && rank == size-1) {
+    nk+= n%size;
+  }
+  merge_sort(a+start, nk);
   int d = delve;
   int k = rank;
   int mask = 0;
@@ -120,9 +125,15 @@ int main(int argc, char* *argv) {
       if ((k & i2) != 0) {
         MPI_Send(a+start, nk, MPI_INT, partner, 0, MPI_COMM_WORLD);
       } else {
-        MPI_Recv(a+start+nk, nk, MPI_INT, partner, 0, MPI_COMM_WORLD, NULL);
-        merge(a+start, a+start, a+start+nk, nk, nk);
-        nk*=2;
+        MPI_Status status;
+        MPI_Recv(a+start+nk, nk+n%size, MPI_INT, partner, 0, MPI_COMM_WORLD, &status);
+        int received;
+        MPI_Get_count(&status, MPI_INT, &received);
+        //printf("nk: %d; received: %d\n", nk, received);
+        //printArr(a+start, nk);
+        //printArr(a+start+nk, received);
+        merge(a+start, a+start, a+start+nk, nk, received);
+        nk+=received;
       }
     }
     mask = mask ^ i2;

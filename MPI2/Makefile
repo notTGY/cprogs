@@ -1,3 +1,5 @@
+hypercube:
+	mpicc merge_mpi_hybercube.c && mpiexec -n 2 ./a.out 7
 task:
 	gcc -fopenmp tasks.c && time ./a.out 30
 mmul:

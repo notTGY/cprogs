@@ -17,17 +17,20 @@ typedef struct {
 typedef struct {
     int n_bar;
     #define Order(A) ((A)->n_bar)
-    FLOAT entries[MAX];
+    FLOAT *entries;
     #define Entry(A,i,j) (*(((A)->entries) + ((A)->n_bar)*(i) + (j)))
 } LOCAL_MATRIX_T;
 
 MPI_Datatype local_matrix_mpi_t;
 
 LOCAL_MATRIX_T* Local_matrix_allocate(int n_bar) {
-    return (LOCAL_MATRIX_T*) malloc(sizeof(LOCAL_MATRIX_T));
+    LOCAL_MATRIX_T* matrix = (LOCAL_MATRIX_T*) malloc(sizeof(LOCAL_MATRIX_T));
+    matrix->entries = (FLOAT*) malloc(sizeof(FLOAT) * n_bar*n_bar);
+    return matrix;
 }
 
 void Free_local_matrix(LOCAL_MATRIX_T** local_A) {
+    free((*local_A)->entries);
     free(*local_A);
 }
 
@@ -55,12 +58,12 @@ void Build_matrix_type(LOCAL_MATRIX_T* local_A) {
     MPI_Aint start_address, address;
     MPI_Type_contiguous(Order(local_A) * Order(local_A), FLOAT_MPI, &temp_mpi_t);
     typelist[1] = temp_mpi_t;
-    MPI_Address(local_A, &start_address);
-    MPI_Address(&local_A->n_bar, &address);
+    MPI_Get_address(local_A, &start_address);
+    MPI_Get_address(&local_A->n_bar, &address);
     displacements[0] = address - start_address;
-    MPI_Address(local_A->entries, &address);
+    MPI_Get_address(local_A->entries, &address);
     displacements[1] = address - start_address;
-    MPI_Type_struct(2, block_lengths, displacements, typelist, &local_matrix_mpi_t);
+    MPI_Type_create_struct(2, block_lengths, displacements, typelist, &local_matrix_mpi_t);
     MPI_Type_commit(&local_matrix_mpi_t);
 }
 

@@ -52,7 +52,7 @@ typedef struct {
 typedef struct {
     int     n_bar;
     #define Order(A) ((A)->n_bar)                                      // defination with parameters
-    FLOAT  entries[MAX];
+    FLOAT  *entries;
     #define Entry(A,i,j) (*(((A)->entries) + ((A)->n_bar)*(i) + (j)))  // defination with parameters, Array dereference
 } LOCAL_MATRIX_T;
 
